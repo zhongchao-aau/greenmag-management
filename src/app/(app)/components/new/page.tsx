@@ -56,7 +56,7 @@ export default function NewComponentPage() {
   const UNITS = ['pcs', 'kg', 'g', 'mg', 'L', 'mL', 'm', 'cm', 'mm', 'set', 'roll', 'sheet', 'box', 'pair']
   const COMPONENT_TYPES = [
     { value: 'raw_material', label: 'Raw Material (RM)' },
-    { value: 'device', label: 'Device Component (DV)' },
+    { value: 'equipment', label: 'Lab Equipment (EQ)' },
     { value: 'consumable', label: 'Consumable / Supply (CS)' },
   ]
 
