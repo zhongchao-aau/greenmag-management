@@ -9,6 +9,11 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 const UNITS = ['pcs', 'kg', 'g', 'mg', 'L', 'mL', 'm', 'cm', 'mm', 'set', 'roll', 'sheet', 'box', 'pair']
+const COMPONENT_TYPES = [
+  { value: 'raw_material', label: 'Raw Material (RM)' },
+  { value: 'device', label: 'Device Component (DV)' },
+  { value: 'consumable', label: 'Consumable / Supply (CS)' },
+]
 
 export default function EditComponentPage() {
   const router = useRouter()
@@ -20,7 +25,8 @@ export default function EditComponentPage() {
   const [error, setError] = useState('')
   const [form, setForm] = useState({
     name: '', description: '', unit: 'pcs', supplier_id: '',
-    manufacturer_part_number: '', low_stock_threshold: '', notes: '', is_active: true
+    manufacturer_part_number: '', low_stock_threshold: '', notes: '', is_active: true,
+    component_type: 'raw_material'
   })
 
   useEffect(() => {
@@ -35,7 +41,7 @@ export default function EditComponentPage() {
           name: c.name ?? '', description: c.description ?? '', unit: c.unit ?? 'pcs',
           supplier_id: c.supplier_id ?? '', manufacturer_part_number: c.manufacturer_part_number ?? '',
           low_stock_threshold: c.low_stock_threshold?.toString() ?? '', notes: c.notes ?? '',
-          is_active: c.is_active ?? true,
+          is_active: c.is_active ?? true, component_type: c.component_type ?? 'raw_material',
         })
       }
       setSuppliers(s ?? [])
@@ -62,6 +68,7 @@ export default function EditComponentPage() {
       low_stock_threshold: form.low_stock_threshold ? parseFloat(form.low_stock_threshold) : null,
       notes: form.notes || null,
       is_active: form.is_active,
+      component_type: form.component_type,
     }).eq('id', id)
     if (error) { setError(error.message); setSaving(false); return }
     router.push(`/components/${id}`)
@@ -79,6 +86,17 @@ export default function EditComponentPage() {
         <CardHeader><CardTitle>Edit Component</CardTitle></CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Component Type <span className="text-[var(--destructive)]">*</span></label>
+              <select
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                value={form.component_type}
+                onChange={e => set('component_type', e.target.value)}
+                required
+              >
+                {COMPONENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+              </select>
+            </div>
             <Input label="Component Name" value={form.name} onChange={e => set('name', e.target.value)} required />
             <div>
               <label className="block text-sm font-medium mb-1.5">Description</label>
