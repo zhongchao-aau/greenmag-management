@@ -11,7 +11,7 @@ import { ArrowLeft } from 'lucide-react'
 const UNITS = ['pcs', 'kg', 'g', 'mg', 'L', 'mL', 'm', 'cm', 'mm', 'set', 'roll', 'sheet', 'box', 'pair']
 const COMPONENT_TYPES = [
   { value: 'raw_material', label: 'Raw Material (RM)' },
-  { value: 'device', label: 'Device Component (DV)' },
+  { value: 'equipment', label: 'Lab Equipment (EQ)' },
   { value: 'consumable', label: 'Consumable / Supply (CS)' },
 ]
 
@@ -37,11 +37,13 @@ export default function EditComponentPage() {
         supabase.from('suppliers').select('id, name').eq('is_active', true).order('name'),
       ])
       if (c) {
+        // migration guard: old 'device' enum value maps to new 'equipment'
+        const componentType = c.component_type === 'device' ? 'equipment' : (c.component_type ?? 'raw_material')
         setForm({
           name: c.name ?? '', description: c.description ?? '', unit: c.unit ?? 'pcs',
           supplier_id: c.supplier_id ?? '', manufacturer_part_number: c.manufacturer_part_number ?? '',
           low_stock_threshold: c.low_stock_threshold?.toString() ?? '', notes: c.notes ?? '',
-          is_active: c.is_active ?? true, component_type: c.component_type ?? 'raw_material',
+          is_active: c.is_active ?? true, component_type: componentType,
         })
       }
       setSuppliers(s ?? [])
