@@ -4,11 +4,12 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
-  FlaskConical, Boxes, Building2, LogOut, Magnet, ClipboardCheck, Factory
+  FlaskConical, Boxes, Building2, LogOut, Magnet, ClipboardCheck, Factory, TestTube2
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+
 
 const userNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -16,12 +17,15 @@ const userNav = [
   { href: '/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/shipments', label: 'Shipments', icon: Truck },
   { href: '/inventory', label: 'Inventory', icon: Package },
+  { href: '/samples', label: 'Samples', icon: TestTube2 },
   { href: '/usage/new', label: 'Record Usage', icon: FlaskConical },
 ]
+
 
 const adminOnlyNav = [
   { href: '/receiving', label: 'Receiving', icon: ClipboardCheck },
 ]
+
 
 const masterNav = [
   { href: '/products', label: 'Products', icon: Factory },
@@ -29,14 +33,17 @@ const masterNav = [
   { href: '/suppliers', label: 'Suppliers', icon: Building2 },
 ]
 
+
 interface SidebarProps {
   profile: Profile
 }
+
 
 export function Sidebar({ profile }: SidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const isAdmin = profile.role === 'admin'
+
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -44,6 +51,7 @@ export function Sidebar({ profile }: SidebarProps) {
     router.push('/login')
     router.refresh()
   }
+
 
   return (
     <aside className="flex flex-col w-60 min-h-screen bg-[var(--card)] border-r border-[var(--border)] shrink-0">
@@ -79,6 +87,7 @@ export function Sidebar({ profile }: SidebarProps) {
           )
         })}
 
+
         {isAdmin && adminOnlyNav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href.replace('/new', '') + '/')
           return (
@@ -97,6 +106,7 @@ export function Sidebar({ profile }: SidebarProps) {
             </Link>
           )
         })}
+
 
         <div className="pt-4 pb-1 px-3">
           <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
@@ -120,6 +130,7 @@ export function Sidebar({ profile }: SidebarProps) {
           )
         })}
       </nav>
+
 
       {/* User footer */}
       <div className="border-t border-[var(--border)] px-3 py-3">
