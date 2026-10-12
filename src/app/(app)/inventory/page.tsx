@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptyState } from '@/components/ui/table'
-import { AlertTriangle, ShoppingCart, Truck } from 'lucide-react'
+import { AlertTriangle, ShoppingCart, Truck, Wrench } from 'lucide-react'
 import { formatQuantity } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
@@ -17,6 +17,15 @@ const FILTER_TABS = [
 const ACTIVE_ORDER_STATUSES = ['approved', 'ordered', 'confirmed', 'partially_shipped', 'shipped', 'partially_received']
 // Shipments that are in transit (not yet delivered)
 const ACTIVE_SHIPMENT_STATUSES = ['dispatched', 'in_transit', 'customs', 'out_for_delivery']
+// Build requests that are active (components reserved)
+const ACTIVE_BUILD_STATUSES = ['submitted', 'under_review', 'approved']
+
+const TYPE_LABELS: Record<string, { label: string; prefix: string; color: string }> = {
+  raw_material: { label: 'Raw Materials', prefix: 'RM', color: 'text-blue-700 dark:text-blue-400' },
+  device:       { label: 'Device Components', prefix: 'DV', color: 'text-violet-700 dark:text-violet-400' },
+  consumable:   { label: 'Consumables & Supplies', prefix: 'CS', color: 'text-amber-700 dark:text-amber-400' },
+}
+const TYPE_ORDER = ['raw_material', 'device', 'consumable']
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const { filter: filterParam } = await searchParams
@@ -27,26 +36,38 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
-  // Load inventory balances joined with components
+  // Load ALL components (not just those with inventory) + inventory balances
+  const { data: components } = await supabase
+    .from('components')
+    .select('id, code, name, unit, low_stock_threshold, component_type, supplier:suppliers(name)')
+    .eq('is_active', true)
+    .order('code', { ascending: true })
+
   const { data: balances } = await supabase
     .from('inventory_balances')
-    .select(`
-      component_id, quantity,
-      component:components(id, code, name, unit, low_stock_threshold, supplier:suppliers(name))
-    `)
-    .order('quantity', { ascending: true })
+    .select('component_id, quantity')
 
-  // Load all order items with their order status (to compute on-order quantities)
+  // Load order items for on-order quantities
   const { data: orderItems } = await supabase
     .from('order_items')
     .select('component_id, quantity_ordered, quantity_received, order:purchase_orders(status)')
 
-  // Load all shipment items with their shipment status (to compute in-transit quantities)
+  // Load shipment items for in-transit quantities
   const { data: shipmentItems } = await supabase
     .from('shipment_items')
     .select('component_id, quantity_shipped, shipment:shipments(status)')
 
-  // Aggregate on-order quantities per component (only for active orders)
+  // Load request items from active build requests for reserved quantities
+  const { data: buildRequestItems } = await supabase
+    .from('request_items')
+    .select('component_id, quantity_requested, request:purchase_requests(status, request_type)')
+
+  // Build lookup maps
+  const balanceMap: Record<string, number> = {}
+  for (const b of balances ?? []) {
+    if (b.component_id) balanceMap[b.component_id] = b.quantity ?? 0
+  }
+
   const onOrderMap: Record<string, number> = {}
   for (const item of orderItems ?? []) {
     const orderStatus = (item.order as { status: string } | null)?.status ?? ''
@@ -56,7 +77,6 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     }
   }
 
-  // Aggregate in-transit quantities per component (only for active shipments)
   const inTransitMap: Record<string, number> = {}
   for (const item of shipmentItems ?? []) {
     const shipStatus = (item.shipment as { status: string } | null)?.status ?? ''
@@ -65,23 +85,54 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     }
   }
 
+  const reservedMap: Record<string, number> = {}
+  for (const item of buildRequestItems ?? []) {
+    const req = item.request as { status: string; request_type: string } | null
+    if (item.component_id && req?.request_type === 'build' && ACTIVE_BUILD_STATUSES.includes(req.status)) {
+      reservedMap[item.component_id] = (reservedMap[item.component_id] ?? 0) + (item.quantity_requested ?? 0)
+    }
+  }
+
   const activeFilter = filterParam ?? ''
 
-  const filtered = (balances ?? []).filter((b: {
-    quantity: number
-    component: { low_stock_threshold: number | null } | null
+  // Build enriched component list from the components table (shows all even with no inventory)
+  const enriched = (components ?? []).map((c: {
+    id: string; code: string; name: string; unit: string;
+    low_stock_threshold: number | null; component_type: string | null;
+    supplier: { name: string } | null
   }) => {
-    if (activeFilter === 'low') return b.quantity > 0 && b.component?.low_stock_threshold != null && b.quantity < b.component.low_stock_threshold
-    if (activeFilter === 'zero') return b.quantity <= 0
+    const qty = balanceMap[c.id] ?? 0
+    const onOrder = onOrderMap[c.id] ?? 0
+    const inTransit = inTransitMap[c.id] ?? 0
+    const reserved = reservedMap[c.id] ?? 0
+    const isZero = qty <= 0
+    const isLow = !isZero && c.low_stock_threshold != null && qty < c.low_stock_threshold
+    return { ...c, qty, onOrder, inTransit, reserved, isZero, isLow }
+  })
+
+  // Apply filter
+  const filtered = enriched.filter(c => {
+    if (activeFilter === 'low') return c.qty > 0 && c.low_stock_threshold != null && c.qty < c.low_stock_threshold
+    if (activeFilter === 'zero') return c.qty <= 0
     return true
   })
+
+  // Group by component_type
+  const grouped: Record<string, typeof filtered> = {}
+  for (const c of filtered) {
+    const t = c.component_type ?? 'raw_material'
+    if (!grouped[t]) grouped[t] = []
+    grouped[t].push(c)
+  }
+
+  const totalCount = filtered.length
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold">Inventory</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{filtered.length} component{filtered.length !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{totalCount} component{totalCount !== 1 ? 's' : ''}</p>
         </div>
         <Link
           href="/usage/new"
@@ -107,106 +158,111 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         ))}
       </div>
 
-      <div className="card overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Component</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Unit</TableHead>
-              <TableHead className="text-right">In Stock</TableHead>
-              <TableHead className="text-right">
-                <span className="inline-flex items-center justify-end gap-1">
-                  <ShoppingCart className="w-3 h-3" />On Order
-                </span>
-              </TableHead>
-              <TableHead className="text-right">
-                <span className="inline-flex items-center justify-end gap-1">
-                  <Truck className="w-3 h-3" />In Transit
-                </span>
-              </TableHead>
-              <TableHead className="text-right">Threshold</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={8}>
-                  <EmptyState
-                    title="No inventory data"
-                    description="Inventory is posted automatically when shipments are received and inspected."
-                  />
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((b: {
-                component_id: string
-                quantity: number
-                component: {
-                  id: string
-                  code: string
-                  name: string
-                  unit: string
-                  low_stock_threshold: number | null
-                  supplier: { name: string } | null
-                } | null
-              }) => {
-                const compId = b.component_id
-                const onOrder = onOrderMap[compId] ?? 0
-                const inTransit = inTransitMap[compId] ?? 0
-                const isZero = b.quantity <= 0
-                const isLow = !isZero && b.component?.low_stock_threshold != null && b.quantity < b.component.low_stock_threshold
-                return (
-                  <TableRow key={compId} className={isZero ? 'bg-red-50 dark:bg-red-950/20' : isLow ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
-                    <TableCell>
-                      {b.component ? (
-                        <div>
-                          <Link href={`/components/${b.component.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
-                            {b.component.name}
-                          </Link>
-                          <p className="text-xs font-mono text-[var(--muted-foreground)]">{b.component.code}</p>
-                        </div>
-                      ) : <span className="text-sm text-[var(--muted-foreground)]">—</span>}
-                    </TableCell>
-                    <TableCell className="text-sm text-[var(--muted-foreground)]">
-                      {b.component?.supplier?.name ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-sm">{b.component?.unit ?? '—'}</TableCell>
-                    <TableCell className={`text-right text-sm font-medium ${isZero ? 'text-red-600' : isLow ? 'text-amber-600' : ''}`}>
-                      {formatQuantity(b.quantity)}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {onOrder > 0
-                        ? <span className="text-blue-600 dark:text-blue-400 font-medium">+{formatQuantity(onOrder)}</span>
-                        : <span className="text-[var(--muted-foreground)]">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right text-sm">
-                      {inTransit > 0
-                        ? <span className="text-indigo-600 dark:text-indigo-400 font-medium">+{formatQuantity(inTransit)}</span>
-                        : <span className="text-[var(--muted-foreground)]">—</span>}
-                    </TableCell>
-                    <TableCell className="text-right text-sm text-[var(--muted-foreground)]">
-                      {b.component?.low_stock_threshold != null ? formatQuantity(b.component.low_stock_threshold) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      {isZero ? (
-                        <Badge className="badge-cancelled text-xs">Out of Stock</Badge>
-                      ) : isLow ? (
-                        <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400 text-xs">
-                          <AlertTriangle className="w-3 h-3" />Low
-                        </span>
-                      ) : (
-                        <Badge className="badge-approved text-xs">OK</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      {totalCount === 0 ? (
+        <div className="card p-8">
+          <EmptyState
+            title="No components found"
+            description="No components match the current filter."
+          />
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {TYPE_ORDER.filter(t => (grouped[t]?.length ?? 0) > 0).map(typeKey => {
+            const meta = TYPE_LABELS[typeKey]
+            const rows = grouped[typeKey]
+            return (
+              <div key={typeKey}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--secondary)] ${meta.color}`}>
+                    {meta.prefix}
+                  </span>
+                  <h2 className="text-sm font-semibold text-[var(--foreground)]">{meta.label}</h2>
+                  <span className="text-xs text-[var(--muted-foreground)]">({rows.length})</span>
+                </div>
+                <div className="card overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Component</TableHead>
+                        <TableHead>Supplier</TableHead>
+                        <TableHead>Unit</TableHead>
+                        <TableHead className="text-right">In Stock</TableHead>
+                        <TableHead className="text-right">
+                          <span className="inline-flex items-center justify-end gap-1">
+                            <ShoppingCart className="w-3 h-3" />On Order
+                          </span>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <span className="inline-flex items-center justify-end gap-1">
+                            <Truck className="w-3 h-3" />In Transit
+                          </span>
+                        </TableHead>
+                        <TableHead className="text-right">
+                          <span className="inline-flex items-center justify-end gap-1">
+                            <Wrench className="w-3 h-3" />Reserved
+                          </span>
+                        </TableHead>
+                        <TableHead className="text-right">Threshold</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {rows.map(c => (
+                        <TableRow key={c.id} className={c.isZero ? 'bg-red-50 dark:bg-red-950/20' : c.isLow ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
+                          <TableCell>
+                            <div>
+                              <Link href={`/components/${c.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
+                                {c.name}
+                              </Link>
+                              <p className="text-xs font-mono text-[var(--muted-foreground)]">{c.code}</p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm text-[var(--muted-foreground)]">
+                            {(c.supplier as { name: string } | null)?.name ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-sm">{c.unit}</TableCell>
+                          <TableCell className={`text-right text-sm font-medium ${c.isZero ? 'text-red-600' : c.isLow ? 'text-amber-600' : ''}`}>
+                            {formatQuantity(c.qty)}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {c.onOrder > 0
+                              ? <span className="text-blue-600 dark:text-blue-400 font-medium">+{formatQuantity(c.onOrder)}</span>
+                              : <span className="text-[var(--muted-foreground)]">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {c.inTransit > 0
+                              ? <span className="text-indigo-600 dark:text-indigo-400 font-medium">+{formatQuantity(c.inTransit)}</span>
+                              : <span className="text-[var(--muted-foreground)]">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {c.reserved > 0
+                              ? <span className="text-orange-600 dark:text-orange-400 font-medium">{formatQuantity(c.reserved)}</span>
+                              : <span className="text-[var(--muted-foreground)]">—</span>}
+                          </TableCell>
+                          <TableCell className="text-right text-sm text-[var(--muted-foreground)]">
+                            {c.low_stock_threshold != null ? formatQuantity(c.low_stock_threshold) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            {c.isZero ? (
+                              <Badge className="badge-cancelled text-xs">Out of Stock</Badge>
+                            ) : c.isLow ? (
+                              <span className="flex items-center gap-1 text-amber-700 dark:text-amber-400 text-xs">
+                                <AlertTriangle className="w-3 h-3" />Low
+                              </span>
+                            ) : (
+                              <Badge className="badge-approved text-xs">OK</Badge>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
