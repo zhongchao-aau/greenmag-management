@@ -22,10 +22,10 @@ const ACTIVE_BUILD_STATUSES = ['submitted', 'under_review', 'approved']
 
 const TYPE_LABELS: Record<string, { label: string; prefix: string; color: string }> = {
   raw_material: { label: 'Raw Materials', prefix: 'RM', color: 'text-blue-700 dark:text-blue-400' },
-  device:       { label: 'Device Components', prefix: 'DV', color: 'text-violet-700 dark:text-violet-400' },
+  equipment:    { label: 'Lab Equipment', prefix: 'EQ', color: 'text-violet-700 dark:text-violet-400' },
   consumable:   { label: 'Consumables & Supplies', prefix: 'CS', color: 'text-amber-700 dark:text-amber-400' },
 }
-const TYPE_ORDER = ['raw_material', 'device', 'consumable']
+const TYPE_ORDER = ['raw_material', 'equipment', 'consumable']
 
 export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
   const { filter: filterParam } = await searchParams
