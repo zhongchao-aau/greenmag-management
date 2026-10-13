@@ -93,7 +93,12 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
 
           {isAdmin && (
             <div className="pt-2 border-t border-[var(--border)]">
-              <p className="text-xs text-[var(--muted-foreground)] mb-3">Status Transitions</p>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs text-[var(--muted-foreground)]">Status Transitions</p>
+                <Link href={`/samples/${id}/edit`} className="text-xs text-[var(--primary)] hover:underline font-medium">
+                  Edit Details
+                </Link>
+              </div>
               <SampleActions id={id} currentStatus={sample.status} />
             </div>
           )}
