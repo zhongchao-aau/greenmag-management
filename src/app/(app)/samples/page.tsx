@@ -26,10 +26,10 @@ export default async function SamplesPage() {
   const { data: samples } = await supabase
     .from('samples')
     .select(`
-      id, code, display_name, status, manufactured_at,
+      id, code, variant_serial, status, manufacture_date,
       product_variants ( name, products ( name ) )
     `)
-    .order('manufactured_at', { ascending: false })
+    .order('created_at', { ascending: false })
 
   return (
     <div className="p-6">
@@ -47,42 +47,38 @@ export default async function SamplesPage() {
       </div>
 
       {!samples || samples.length === 0 ? (
-        <div className="text-center py-12 text-[var(--muted-foreground)]">
+        <div className="text-center py-16 text-[var(--muted-foreground)]">
           <p className="text-sm">No samples registered yet.</p>
-          <Link href="/samples/new">
-            <Button variant="outline" className="mt-4">Register your first sample</Button>
+          <Link href="/samples/new" className="mt-3 inline-block">
+            <Button size="sm">Register First Sample</Button>
           </Link>
         </div>
       ) : (
         <div className="rounded-lg border border-[var(--border)] overflow-hidden">
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-[var(--border)] bg-[var(--muted)]">
-                <th className="text-left px-4 py-3 font-medium text-[var(--muted-foreground)]">Code</th>
-                <th className="text-left px-4 py-3 font-medium text-[var(--muted-foreground)]">Display Name</th>
-                <th className="text-left px-4 py-3 font-medium text-[var(--muted-foreground)]">Variant / Product</th>
-                <th className="text-left px-4 py-3 font-medium text-[var(--muted-foreground)]">Status</th>
-                <th className="text-left px-4 py-3 font-medium text-[var(--muted-foreground)]">Manufactured</th>
+            <thead className="bg-[var(--secondary)]">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Sample</th>
+                <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Product</th>
+                <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Status</th>
+                <th className="px-4 py-3 text-left font-medium text-[var(--muted-foreground)]">Manufactured</th>
               </tr>
             </thead>
-            <tbody>
-              {samples.map((s, i) => {
-                const variant = s.product_variants as any
-                const product = variant?.products as any
+            <tbody className="divide-y divide-[var(--border)]">
+              {(samples as any[]).map(s => {
+                const variant = s.product_variants
+                const variantName = variant?.name ?? 'Unknown'
+                const displayName = `${variantName} #${String(s.variant_serial ?? 1).padStart(3, '0')}`
                 return (
-                  <tr
-                    key={s.id}
-                    className={`border-b border-[var(--border)] hover:bg-[var(--muted)] transition-colors ${i % 2 === 0 ? '' : 'bg-[var(--muted)]/30'}`}
-                  >
+                  <tr key={s.id} className="hover:bg-[var(--secondary)] transition-colors">
                     <td className="px-4 py-3">
-                      <Link href={`/samples/${s.id}`} className="font-mono text-xs text-[var(--primary)] hover:underline">
-                        {s.code}
+                      <Link href={`/samples/${s.id}`} className="font-medium hover:text-[var(--primary)]">
+                        {displayName}
                       </Link>
+                      <p className="font-mono text-xs text-[var(--muted-foreground)] mt-0.5">{s.code}</p>
                     </td>
-                    <td className="px-4 py-3 font-medium">{s.display_name}</td>
                     <td className="px-4 py-3 text-[var(--muted-foreground)]">
-                      {variant?.name ?? '—'}
-                      {product?.name ? <span className="ml-1 text-xs">({product.name})</span> : null}
+                      {variant?.products?.name ?? '—'}
                     </td>
                     <td className="px-4 py-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_COLORS[s.status] ?? 'bg-gray-100 text-gray-700'}`}>
@@ -90,7 +86,7 @@ export default async function SamplesPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-[var(--muted-foreground)]">
-                      {s.manufactured_at ? new Date(s.manufactured_at).toLocaleDateString() : '—'}
+                      {s.manufacture_date ?? '—'}
                     </td>
                   </tr>
                 )
