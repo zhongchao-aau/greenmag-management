@@ -30,17 +30,30 @@ interface Component {
   type: string
 }
 
+interface Product {
+  id: string
+  name: string
+}
+
 interface Variant {
   id: string
   code: string
   name: string
-  products: { name: string } | null
+  product_id: string
+  products: { id: string; name: string } | null
+}
+
+function generateRequestCode() {
+  const ts = Date.now().toString(36).toUpperCase()
+  const rand = Math.random().toString(36).substr(2, 4).toUpperCase()
+  return `GM-REQ-${ts}${rand}`
 }
 
 export default function NewRequestPage() {
   const router = useRouter()
   const [requestType, setRequestType] = useState<RequestType>('procure')
   const [components, setComponents] = useState<Component[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [variants, setVariants] = useState<Variant[]>([])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -49,6 +62,7 @@ export default function NewRequestPage() {
   const [purpose, setPurpose] = useState('')
   const [notes, setNotes] = useState('')
   const [items, setItems] = useState([{ component_id: '', quantity: '', notes: '' }])
+  const [productId, setProductId] = useState('')
   const [variantId, setVariantId] = useState('')
   const [quantityToBuild, setQuantityToBuild] = useState(1)
   const [newComponent, setNewComponent] = useState({
@@ -64,10 +78,24 @@ export default function NewRequestPage() {
       const supabase = createClient()
       const [{ data: comps }, { data: vars }] = await Promise.all([
         supabase.from('components').select('id, code, name, unit, type').eq('is_active', true).order('name'),
-        supabase.from('product_variants').select('id, code, name, products(name)').eq('status', 'active').order('name'),
+        supabase.from('product_variants').select('id, code, name, product_id, products(id, name)').eq('status', 'active').order('name'),
       ])
       setComponents((comps as any) ?? [])
-      setVariants((vars as any) ?? [])
+      const allVars: Variant[] = (vars as any) ?? []
+      setVariants(allVars)
+
+      // Extract unique products from variants
+      const seen = new Set<string>()
+      const prods: Product[] = []
+      allVars.forEach(v => {
+        const p = v.products as any
+        if (p?.id && !seen.has(p.id)) {
+          seen.add(p.id)
+          prods.push({ id: p.id, name: p.name })
+        }
+      })
+      prods.sort((a, b) => a.name.localeCompare(b.name))
+      setProducts(prods)
     }
     load()
   }, [])
@@ -75,6 +103,10 @@ export default function NewRequestPage() {
   const filteredComponents = componentTypeFilter === 'all'
     ? components
     : components.filter(c => c.type === componentTypeFilter)
+
+  const filteredVariants = productId
+    ? variants.filter(v => (v.products as any)?.id === productId)
+    : variants
 
   function addItem() { setItems(prev => [...prev, { component_id: '', quantity: '', notes: '' }]) }
   function removeItem(idx: number) { setItems(prev => prev.filter((_, i) => i !== idx)) }
@@ -117,6 +149,7 @@ export default function NewRequestPage() {
     }
 
     const insertPayload: any = {
+      code: generateRequestCode(),
       purpose: purpose.trim(),
       notes: finalNotes,
       request_type: requestType,
@@ -160,7 +193,7 @@ export default function NewRequestPage() {
               <button
                 key={type}
                 type="button"
-                onClick={() => { setRequestType(type); setError('') }}
+                onClick={() => { setRequestType(type); setError(''); setProductId(''); setVariantId('') }}
                 className={`flex-1 py-1.5 px-2 rounded-md text-sm font-medium transition-colors ${
                   requestType === type
                     ? 'bg-[var(--background)] text-[var(--foreground)] shadow-sm'
@@ -238,14 +271,31 @@ export default function NewRequestPage() {
             {requestType === 'build' && (
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Product Variant <span className="text-[var(--destructive)]">*</span></label>
+                  <label className="block text-sm font-medium mb-1.5">Product <span className="text-[var(--destructive)]">*</span></label>
                   <select
                     className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                    value={variantId} onChange={e => setVariantId(e.target.value)} required
+                    value={productId}
+                    onChange={e => { setProductId(e.target.value); setVariantId('') }}
+                    required
                   >
-                    <option value="">Select variant…</option>
-                    {variants.map(v => (
-                      <option key={v.id} value={v.id}>{v.name}{v.products ? ` — ${(v.products as any).name}` : ''}</option>
+                    <option value="">Select product…</option>
+                    {products.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Variant <span className="text-[var(--destructive)]">*</span></label>
+                  <select
+                    className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                    value={variantId}
+                    onChange={e => setVariantId(e.target.value)}
+                    required
+                    disabled={!productId}
+                  >
+                    <option value="">{productId ? 'Select variant…' : 'Select a product first…'}</option>
+                    {filteredVariants.map(v => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
                     ))}
                   </select>
                 </div>
@@ -275,7 +325,7 @@ export default function NewRequestPage() {
 
             {requestType === 'component_new' && (
               <div className="space-y-4">
-                <p className="text-sm text-[var(--muted-foreground)]">Request creation of a new component that doesn’t exist in the system yet.</p>
+                <p className="text-sm text-[var(--muted-foreground)]">Request creation of a new component that doesn't exist in the system yet.</p>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium mb-1.5">Component Name <span className="text-[var(--destructive)]">*</span></label>
@@ -312,7 +362,7 @@ export default function NewRequestPage() {
                   <textarea
                     className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                     value={newComponent.description} onChange={e => setNewComponent(prev => ({ ...prev, description: e.target.value }))}
-                    placeholder="Describe the component specifications, where it’s sourced, why it’s needed…" />
+                    placeholder="Describe the component specifications, where it's sourced, why it's needed…" />
                 </div>
               </div>
             )}
