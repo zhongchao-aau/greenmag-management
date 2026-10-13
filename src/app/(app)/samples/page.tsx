@@ -23,17 +23,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default async function SamplesPage() {
   const supabase = await createClient()
-  const [{ data: samples }, { data: profile }] = await Promise.all([
-    supabase
-      .from('samples')
-      .select(`
-        id, code, display_name, status, manufactured_at,
-        product_variants ( name, products ( name ) )
-      `)
-      .order('manufactured_at', { ascending: false }),
-    supabase.from('profiles').select('role').single(),
-  ])
-  const isAdmin = profile?.role === 'admin'
+  const { data: samples } = await supabase
+    .from('samples')
+    .select(`
+      id, code, display_name, status, manufactured_at,
+      product_variants ( name, products ( name ) )
+    `)
+    .order('manufactured_at', { ascending: false })
 
   return (
     <div className="p-6">
@@ -42,24 +38,20 @@ export default async function SamplesPage() {
           <h1 className="text-2xl font-bold text-[var(--foreground)]">Samples</h1>
           <p className="text-sm text-[var(--muted-foreground)] mt-1">Manage physical sample units</p>
         </div>
-        {isAdmin && (
-          <Link href="/samples/new">
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Register Sample
-            </Button>
-          </Link>
-        )}
+        <Link href="/samples/new">
+          <Button>
+            <Plus className="w-4 h-4 mr-2" />
+            Register Sample
+          </Button>
+        </Link>
       </div>
 
       {!samples || samples.length === 0 ? (
         <div className="text-center py-12 text-[var(--muted-foreground)]">
           <p className="text-sm">No samples registered yet.</p>
-          {isAdmin && (
-            <Link href="/samples/new">
-              <Button variant="outline" className="mt-4">Register your first sample</Button>
-            </Link>
-          )}
+          <Link href="/samples/new">
+            <Button variant="outline" className="mt-4">Register your first sample</Button>
+          </Link>
         </div>
       ) : (
         <div className="rounded-lg border border-[var(--border)] overflow-hidden">
