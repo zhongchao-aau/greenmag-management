@@ -1,15 +1,15 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
-  FlaskConical, Boxes, Building2, LogOut, Magnet, ClipboardCheck, Factory, TestTube2
+  FlaskConical, Building2, LogOut, Magnet, ClipboardCheck, Factory, TestTube2,
+  Layers, Wrench, Archive
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
-
 
 const userNav = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -21,29 +21,35 @@ const userNav = [
   { href: '/usage/new', label: 'Record Usage', icon: FlaskConical },
 ]
 
-
 const adminOnlyNav = [
   { href: '/receiving', label: 'Receiving', icon: ClipboardCheck },
 ]
 
+type NavItem = {
+  href: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  basePath?: string
+  typeParam?: string
+}
 
-const masterNav = [
+const masterNav: NavItem[] = [
   { href: '/products', label: 'Products', icon: Factory },
-  { href: '/components', label: 'Components', icon: Boxes },
+  { href: '/components?type=raw_material', basePath: '/components', typeParam: 'raw_material', label: 'Materials', icon: Layers },
+  { href: '/components?type=equipment', basePath: '/components', typeParam: 'equipment', label: 'Equipment', icon: Wrench },
+  { href: '/components?type=consumable', basePath: '/components', typeParam: 'consumable', label: 'Consumables', icon: Archive },
   { href: '/suppliers', label: 'Suppliers', icon: Building2 },
 ]
-
 
 interface SidebarProps {
   profile: Profile
 }
 
-
 export function Sidebar({ profile }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const isAdmin = profile.role === 'admin'
-
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -52,6 +58,12 @@ export function Sidebar({ profile }: SidebarProps) {
     router.refresh()
   }
 
+  function isActive(item: NavItem) {
+    if (item.basePath && item.typeParam) {
+      return pathname === item.basePath && searchParams.get('type') === item.typeParam
+    }
+    return pathname === item.href || pathname.startsWith(item.href + '/')
+  }
 
   return (
     <aside className="flex flex-col w-60 min-h-screen bg-[var(--card)] border-r border-[var(--border)] shrink-0">
@@ -87,7 +99,6 @@ export function Sidebar({ profile }: SidebarProps) {
           )
         })}
 
-
         {isAdmin && adminOnlyNav.map(item => {
           const active = pathname === item.href || pathname.startsWith(item.href.replace('/new', '') + '/')
           return (
@@ -104,15 +115,14 @@ export function Sidebar({ profile }: SidebarProps) {
               <item.icon className="w-4 h-4 shrink-0" />
               {item.label}
             </Link>
-          )
+            )
         })}
-
 
         <div className="pt-4 pb-1 px-3">
           <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
         </div>
         {masterNav.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          const active = isActive(item)
           return (
             <Link
               key={item.href}
@@ -130,7 +140,6 @@ export function Sidebar({ profile }: SidebarProps) {
           )
         })}
       </nav>
-
 
       {/* User footer */}
       <div className="border-t border-[var(--border)] px-3 py-3">
