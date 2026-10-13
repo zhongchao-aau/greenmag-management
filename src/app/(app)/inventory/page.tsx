@@ -216,10 +216,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             return (
               <div key={typeKey}>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--secondary)] ${meta.color}`}>
-                    {meta.prefix}
-                  </span>
-                  <h2 className="text-sm font-semibold text-[var(--foreground)]">{meta.label}</h2>
+                  <h2 className={`text-sm font-semibold ${meta.color}`}>{meta.label}</h2>
                   <span className="text-xs text-[var(--muted-foreground)]">({rows.length})</span>
                 </div>
                 <div className="card overflow-hidden">
