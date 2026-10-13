@@ -9,8 +9,9 @@ import { requestStatusClass, REQUEST_STATUS_LABELS, formatDate, formatRelative, 
 
 const REQUEST_TYPE_LABELS: Record<string, string> = {
   procure: 'Procure',
-  build: 'Build Product',
+  build: 'Build Sample',
   component_update: 'Component Update',
+  component_new: 'New Component',
 }
 import { RequestActions } from './request-actions'
 export const dynamic = 'force-dynamic'
@@ -30,14 +31,14 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
     .select(`
       *,
       requester:profiles!requester_id(id, full_name, email),
-      reviewer:profiles!reviewer_id(full_name)
+      reviewer:profiles!reviewer_id(full_name),
+      variant:product_variants!variant_id(id, name, code, products(name))
     `)
     .eq('id', id)
     .single()
 
   if (!request) notFound()
 
-  // Access control: non-admins can only see their own requests
   if (!isAdmin && request.requester_id !== user.id) redirect('/requests')
 
   const { data: items } = await supabase
@@ -61,6 +62,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const canWithdraw = isOwner && ['submitted', 'under_review'].includes(request.status)
   const canAdminReview = isAdmin && ['submitted', 'under_review'].includes(request.status)
 
+  const req = request as any
+  const variant = req.variant as any
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -71,7 +75,6 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Header */}
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
@@ -95,51 +98,107 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                 </div>
               </div>
               {request.notes && (
-                <p className="text-sm text-[var(--muted-foreground)] mt-3 p-3 bg-[var(--secondary)] rounded-md">{request.notes}</p>
+                <p className="text-sm text-[var(--muted-foreground)] mt-3 p-3 bg-[var(--secondary)] rounded-md whitespace-pre-wrap">{request.notes}</p>
               )}
             </CardHeader>
           </Card>
 
-          {/* Items */}
-          <Card>
-            <CardHeader><CardTitle>Requested Items</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Component</TableHead>
-                    <TableHead>Quantity</TableHead>
-                    <TableHead>Notes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(items ?? []).map((item: {
-                    id: string; quantity_requested: number; notes: string | null;
-                    component: { id: string; code: string; name: string; unit: string } | null
-                  }) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        {item.component ? (
-                          <div>
-                            <Link href={`/components/${item.component.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
-                              {item.component.name}
-                            </Link>
-                            <p className="text-xs text-[var(--muted-foreground)] font-mono">{item.component.code}</p>
-                          </div>
-                        ) : <span className="text-[var(--muted-foreground)]">—</span>}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {request.request_type === 'component_update' ? <span className="text-[var(--muted-foreground)] italic">update</span> : <>{formatQuantity(item.quantity_requested)} {item.component?.unit}</>}
-                      </TableCell>
-                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          {request.request_type === 'build' && variant && (
+            <Card>
+              <CardHeader><CardTitle>Build Details</CardTitle></CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Product</span>
+                  <span className="font-medium">{variant.products?.name ?? '—'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Variant</span>
+                  <span className="font-medium">{variant.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Quantity to Build</span>
+                  <span className="font-medium">{req.quantity_to_build ?? 1}</span>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
-          {/* Activity timeline */}
+          {request.request_type === 'procure' && (items ?? []).length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Requested Items</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Component</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(items ?? []).map((item: {
+                      id: string; quantity_requested: number; notes: string | null;
+                      component: { id: string; code: string; name: string; unit: string } | null
+                    }) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          {item.component ? (
+                            <div>
+                              <Link href={`/components/${item.component.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
+                                {item.component.name}
+                              </Link>
+                              <p className="text-xs text-[var(--muted-foreground)] font-mono">{item.component.code}</p>
+                            </div>
+                          ) : <span className="text-[var(--muted-foreground)]">—</span>}
+                        </TableCell>
+                        <TableCell className="text-sm font-medium">
+                          {formatQuantity(item.quantity_requested)} {item.component?.unit}
+                        </TableCell>
+                        <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
+          {request.request_type === 'component_update' && (items ?? []).length > 0 && (
+            <Card>
+              <CardHeader><CardTitle>Components</CardTitle></CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Component</TableHead>
+                      <TableHead>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {(items ?? []).map((item: {
+                      id: string; quantity_requested: number; notes: string | null;
+                      component: { id: string; code: string; name: string; unit: string } | null
+                    }) => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          {item.component ? (
+                            <div>
+                              <Link href={`/components/${item.component.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
+                                {item.component.name}
+                              </Link>
+                              <p className="text-xs text-[var(--muted-foreground)] font-mono">{item.component.code}</p>
+                            </div>
+                          ) : <span className="text-[var(--muted-foreground)]">—</span>}
+                        </TableCell>
+                        <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
+
           {(activity ?? []).length > 0 && (
             <Card>
               <CardHeader><CardTitle>Activity</CardTitle></CardHeader>
@@ -162,9 +221,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
           )}
         </div>
 
-        {/* Right sidebar */}
         <div className="space-y-4">
-          {/* Actions */}
           <RequestActions
             requestId={id}
             status={request.status}
@@ -173,9 +230,11 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
             canWithdraw={canWithdraw}
             canAdminReview={canAdminReview}
             isAdmin={isAdmin}
+            requestType={request.request_type}
+            variantId={req.variant_id}
+            quantityToBuild={req.quantity_to_build}
           />
 
-          {/* Meta */}
           <Card>
             <CardHeader><CardTitle className="text-sm">Details</CardTitle></CardHeader>
             <CardContent className="space-y-2 text-sm">
