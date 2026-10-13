@@ -7,8 +7,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptySta
 import { Plus, Package } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
-export default async function ComponentsPage({ searchParams }: { searchParams: Promise<{ supplier?: string; filter?: string }> }) {
-  const { supplier, filter } = await searchParams
+const TYPE_META: Record<string, { label: string; description: string }> = {
+  raw_material: { label: 'Materials', description: 'Raw materials and input substances' },
+  equipment:    { label: 'Equipment', description: 'Lab and production equipment' },
+  consumable:   { label: 'Consumables', description: 'Supplies and consumable items' },
+}
+
+export default async function ComponentsPage({ searchParams }: { searchParams: Promise<{ supplier?: string; filter?: string; type?: string }> }) {
+  const { supplier, filter, type } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -20,13 +26,17 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
   let query = supabase
     .from('components')
     .select(`
-      id, code, name, description, unit, low_stock_threshold, is_active,
+      id, code, name, description, unit, low_stock_threshold, is_active, component_type,
       supplier:suppliers(id, name)
     `)
     .order('code', { ascending: true })
 
   if (supplier) {
     query = query.eq('supplier_id', supplier)
+  }
+
+  if (type) {
+    query = query.eq('component_type', type)
   }
 
   if (filter === 'active') {
@@ -43,16 +53,20 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
 
   const balanceMap = new Map((balances ?? []).map((b: { component_id: string; quantity: number }) => [b.component_id, b.quantity]))
 
+  const typeMeta = type ? TYPE_META[type] : null
+  const pageTitle = typeMeta ? typeMeta.label : 'Components'
+  const pageDescription = typeMeta ? typeMeta.description : 'All components'
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-semibold">Components</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{(components ?? []).length} components</p>
+          <h1 className="text-xl font-semibold">{pageTitle}</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{(components ?? []).length} {pageDescription.toLowerCase()}</p>
         </div>
         {isAdmin && (
-          <Link href="/components/new">
-            <Button size="sm"><Plus className="w-4 h-4 mr-1.5" />Add Component</Button>
+          <Link href={type ? `/components/new?type=${type}` : '/components/new'}>
+            <Button size="sm"><Plus className="w-4 h-4 mr-1.5" />Add {typeMeta ? typeMeta.label.replace(/s$/, '') : 'Component'}</Button>
           </Link>
         )}
       </div>
@@ -76,16 +90,17 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
                 <TableCell colSpan={7}>
                   <EmptyState
                     icon={<Package className="w-8 h-8 text-[var(--muted-foreground)]" />}
-                    title="No components yet"
-                    description={isAdmin ? 'Add your first component to start managing procurement.' : 'No components have been added yet.'}
-                    action={isAdmin ? <Link href="/components/new"><Button size="sm"><Plus className="w-4 h-4 mr-1.5" />Add Component</Button></Link> : undefined}
+                    title={`No ${pageTitle.toLowerCase()} yet`}
+                    description={isAdmin ? `Add your first ${typeMeta ? typeMeta.label.replace(/s$/, '').toLowerCase() : 'component'} to start managing procurement.` : `No ${pageTitle.toLowerCase()} have been added yet.`}
+                    action={isAdmin ? <Link href={type ? `/components/new?type=${type}` : '/components/new'}><Button size="sm"><Plus className="w-4 h-4 mr-1.5" />Add {typeMeta ? typeMeta.label.replace(/s$/, '') : 'Component'}</Button></Link> : undefined}
                   />
                 </TableCell>
               </TableRow>
             ) : (
               (components ?? []).map((c: {
                 id: string; code: string; name: string; description: string | null; unit: string;
-                low_stock_threshold: number | null; is_active: boolean; supplier: { id: string; name: string } | null
+                low_stock_threshold: number | null; is_active: boolean; component_type: string | null;
+                supplier: { id: string; name: string } | null
               }) => {
                 const qty = balanceMap.get(c.id) ?? 0
                 const isLow = c.low_stock_threshold != null && qty < c.low_stock_threshold
