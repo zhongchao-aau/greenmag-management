@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
 const STATUSES = [
+  { value: 'approved_to_build', label: 'Approved to Build' },
   { value: 'manufactured', label: 'Manufactured' },
   { value: 'in_test', label: 'In Test' },
   { value: 'passed', label: 'Passed' },
@@ -43,7 +44,7 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
         if (!sample) { router.replace('/samples'); return }
         const s = sample as any
         setForm({
-          status: s.status ?? 'manufactured',
+          status: s.status ?? 'approved_to_build',
           notes: s.notes ?? '',
           manufacture_date: s.manufacture_date ?? '',
         })
