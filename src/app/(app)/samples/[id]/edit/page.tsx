@@ -23,11 +23,9 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
-    display_name: '',
     status: '',
     notes: '',
-    manufactured_at: '',
-    deployed_at: '',
+    manufacture_date: '',
   })
 
   useEffect(() => {
@@ -43,12 +41,11 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
           return
         }
         if (!sample) { router.replace('/samples'); return }
+        const s = sample as any
         setForm({
-          display_name: sample.display_name ?? '',
-          status: sample.status ?? 'manufactured',
-          notes: sample.notes ?? '',
-          manufactured_at: sample.manufactured_at?.slice(0, 10) ?? '',
-          deployed_at: sample.deployed_at?.slice(0, 10) ?? '',
+          status: s.status ?? 'manufactured',
+          notes: s.notes ?? '',
+          manufacture_date: s.manufacture_date ?? '',
         })
         setLoading(false)
       })
@@ -61,18 +58,15 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.display_name.trim()) { setError('Display name is required.'); return }
     setError('')
     setSaving(true)
     const supabase = createClient()
     const { error: err } = await supabase
       .from('samples')
       .update({
-        display_name: form.display_name.trim(),
         status: form.status,
         notes: form.notes.trim() || null,
-        manufactured_at: form.manufactured_at || null,
-        deployed_at: form.deployed_at || null,
+        manufacture_date: form.manufacture_date || null,
       })
       .eq('id', id)
     if (err) { setError(err.message); setSaving(false); return }
@@ -92,19 +86,6 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">
-                Display Name <span className="text-[var(--destructive)]">*</span>
-              </label>
-              <input
-                type="text"
-                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                value={form.display_name}
-                onChange={e => set('display_name', e.target.value)}
-                required
-              />
-            </div>
-
-            <div>
               <label className="block text-sm font-medium mb-1.5">Status</label>
               <select
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
@@ -117,25 +98,14 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
               </select>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Manufacture Date</label>
-                <input
-                  type="date"
-                  className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                  value={form.manufactured_at}
-                  onChange={e => set('manufactured_at', e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Deploy Date</label>
-                <input
-                  type="date"
-                  className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                  value={form.deployed_at}
-                  onChange={e => set('deployed_at', e.target.value)}
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Manufacture Date</label>
+              <input
+                type="date"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                value={form.manufacture_date}
+                onChange={e => set('manufacture_date', e.target.value)}
+              />
             </div>
 
             <div>
