@@ -31,8 +31,7 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
     supabase
       .from('samples')
       .select(`
-        id, code, display_name, status, notes,
-        manufactured_at, deployed_at,
+        id, code, variant_serial, status, notes, manufacture_date,
         product_variants ( name, code, products ( name ) )
       `)
       .eq('id', id)
@@ -42,8 +41,10 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
 
   if (!sample) notFound()
 
-  const variant = sample.product_variants as any
+  const s = sample as any
+  const variant = s.product_variants as any
   const product = variant?.products as any
+  const displayName = `${variant?.name ?? 'Sample'} #${String(s.variant_serial ?? 1).padStart(3, '0')}`
   const isAdmin = profile?.role === 'admin'
 
   return (
@@ -56,11 +57,11 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
         <CardHeader>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-xs font-mono text-[var(--muted-foreground)] mb-1">{sample.code}</p>
-              <CardTitle>{sample.display_name}</CardTitle>
+              <p className="text-xs font-mono text-[var(--muted-foreground)] mb-1">{s.code}</p>
+              <CardTitle>{displayName}</CardTitle>
             </div>
-            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[sample.status] ?? 'bg-gray-100 text-gray-700'}`}>
-              {STATUS_LABELS[sample.status] ?? sample.status}
+            <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ${STATUS_COLORS[s.status] ?? 'bg-gray-100 text-gray-700'}`}>
+              {STATUS_LABELS[s.status] ?? s.status}
             </span>
           </div>
         </CardHeader>
@@ -76,18 +77,14 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
             </div>
             <div>
               <p className="text-[var(--muted-foreground)] text-xs mb-0.5">Manufactured</p>
-              <p>{sample.manufactured_at ? new Date(sample.manufactured_at).toLocaleDateString() : '—'}</p>
-            </div>
-            <div>
-              <p className="text-[var(--muted-foreground)] text-xs mb-0.5">Deployed</p>
-              <p>{sample.deployed_at ? new Date(sample.deployed_at).toLocaleDateString() : '—'}</p>
+              <p>{s.manufacture_date ? new Date(s.manufacture_date).toLocaleDateString() : '—'}</p>
             </div>
           </div>
 
-          {sample.notes && (
+          {s.notes && (
             <div className="text-sm">
               <p className="text-[var(--muted-foreground)] text-xs mb-0.5">Notes</p>
-              <p className="whitespace-pre-wrap">{sample.notes}</p>
+              <p className="whitespace-pre-wrap">{s.notes}</p>
             </div>
           )}
 
@@ -99,7 +96,7 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
                   Edit Details
                 </Link>
               </div>
-              <SampleActions id={id} currentStatus={sample.status} />
+              <SampleActions id={id} currentStatus={s.status} />
             </div>
           )}
         </CardContent>
