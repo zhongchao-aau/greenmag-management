@@ -18,7 +18,7 @@ const userNav = [
   { href: '/shipments', label: 'Shipments', icon: Truck },
   { href: '/inventory', label: 'Inventory', icon: Package },
   { href: '/samples', label: 'Samples', icon: TestTube2 },
-  { href: '/usage/new', label: 'Record Usage', icon: FlaskConical },
+  { href: '/usage', label: 'Usage Report', icon: FlaskConical },
 ]
 
 const adminOnlyNav = [
@@ -74,54 +74,13 @@ export function Sidebar({ profile }: SidebarProps) {
         </div>
         <div>
           <p className="text-sm font-bold text-[var(--foreground)] leading-tight">GreenMag</p>
-          <p className="text-xs text-[var(--muted-foreground)]">Procurement</p>
+          <p className="text-xs text-[var(--muted-foreground)]">Management</p>
         </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {userNav.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                active
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
-            </Link>
-          )
-        })}
-
-        {isAdmin && adminOnlyNav.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href.replace('/new', '') + '/')
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                active
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
-            </Link>
-            )
-        })}
-
-        <div className="pt-4 pb-1 px-3">
-          <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
-        </div>
-        {masterNav.map(item => {
           const active = isActive(item)
           return (
             <Link
@@ -139,6 +98,54 @@ export function Sidebar({ profile }: SidebarProps) {
             </Link>
           )
         })}
+
+        {isAdmin && (
+          <>
+            <div className="pt-4 pb-1 px-3">
+              <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Administration</p>
+            </div>
+            {adminOnlyNav.map(item => {
+              const active = pathname === item.href || pathname.startsWith(item.href + '/')
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
+                  )}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  {item.label}
+                </Link>
+              )
+            })}
+
+            <div className="pt-4 pb-1 px-3">
+              <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
+            </div>
+            {masterNav.map(item => {
+              const active = isActive(item)
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                    active
+                      ? 'bg-[var(--primary)] text-white'
+                      : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
+                  )}
+                >
+                  <item.icon className="w-4 h-4 shrink-0" />
+                  {item.label}
+                </Link>
+              )
+            })}
+          </>
+        )}
       </nav>
 
       {/* User footer */}
