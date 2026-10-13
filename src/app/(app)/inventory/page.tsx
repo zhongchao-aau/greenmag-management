@@ -13,6 +13,13 @@ const FILTER_TABS = [
   { value: 'zero', label: '🔴 Out of Stock' },
 ]
 
+const TYPE_TABS = [
+  { value: '', label: 'All Types' },
+  { value: 'raw_material', label: 'Materials' },
+  { value: 'equipment', label: 'Equipment' },
+  { value: 'consumable', label: 'Consumables' },
+]
+
 // Orders that are active (placed but not yet fully received)
 const ACTIVE_ORDER_STATUSES = ['approved', 'ordered', 'confirmed', 'partially_shipped', 'shipped', 'partially_received']
 // Shipments that are in transit (not yet delivered)
@@ -27,8 +34,8 @@ const TYPE_LABELS: Record<string, { label: string; prefix: string; color: string
 }
 const TYPE_ORDER = ['raw_material', 'equipment', 'consumable']
 
-export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
-  const { filter: filterParam } = await searchParams
+export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ filter?: string; type?: string }> }) {
+  const { filter: filterParam, type: typeParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -94,6 +101,23 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   }
 
   const activeFilter = filterParam ?? ''
+  const activeType = typeParam ?? ''
+
+  // URL helpers that preserve both params
+  function typeUrl(t: string) {
+    const params = new URLSearchParams()
+    if (t) params.set('type', t)
+    if (activeFilter) params.set('filter', activeFilter)
+    const qs = params.toString()
+    return `/inventory${qs ? '?' + qs : ''}`
+  }
+  function filterUrl(f: string) {
+    const params = new URLSearchParams()
+    if (activeType) params.set('type', activeType)
+    if (f) params.set('filter', f)
+    const qs = params.toString()
+    return `/inventory${qs ? '?' + qs : ''}`
+  }
 
   // Build enriched component list from the components table (shows all even with no inventory)
   const enriched = (components ?? []).map((c: {
@@ -110,8 +134,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     return { ...c, qty, onOrder, inTransit, reserved, isZero, isLow }
   })
 
-  // Apply filter
+  // Apply filters
   const filtered = enriched.filter(c => {
+    if (activeType && c.component_type !== activeType) return false
     if (activeFilter === 'low') return c.qty > 0 && c.low_stock_threshold != null && c.qty < c.low_stock_threshold
     if (activeFilter === 'zero') return c.qty <= 0
     return true
@@ -142,11 +167,29 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </Link>
       </div>
 
+      {/* Type filter row */}
+      <div className="flex gap-1 mb-0 border-b border-[var(--border)] overflow-x-auto">
+        {TYPE_TABS.map(tab => (
+          <Link
+            key={tab.value}
+            href={typeUrl(tab.value)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
+              activeType === tab.value
+                ? 'border-[var(--primary)] text-[var(--primary)]'
+                : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
+      </div>
+
+      {/* Status filter row */}
       <div className="flex gap-1 mb-4 border-b border-[var(--border)] overflow-x-auto">
         {FILTER_TABS.map(tab => (
           <Link
             key={tab.value}
-            href={tab.value ? `/inventory?filter=${tab.value}` : '/inventory'}
+            href={filterUrl(tab.value)}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
               activeFilter === tab.value
                 ? 'border-[var(--primary)] text-[var(--primary)]'
