@@ -3,9 +3,6 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import Link from 'next/link'
-import { CheckCircle, XCircle, Send, Edit, RotateCcw, ShoppingCart } from 'lucide-react'
 
 interface Props {
   requestId: string
@@ -15,162 +12,149 @@ interface Props {
   canWithdraw: boolean
   canAdminReview: boolean
   isAdmin: boolean
+  requestType?: string
+  variantId?: string
+  quantityToBuild?: number
 }
 
-export function RequestActions({ requestId, status, canEdit, canSubmit, canWithdraw, canAdminReview, isAdmin }: Props) {
+export function SampleActions({ id, currentStatus }: { id: string; currentStatus: string }) {
   const router = useRouter()
-  const [loading, setLoading] = useState<string | null>(null)
-  const [rejectionReason, setRejectionReason] = useState('')
-  const [showRejectForm, setShowRejectForm] = useState(false)
-  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  async function performAction(action: string) {
-    setLoading(action)
-    setError('')
-    const supabase = createClient()
-
-    let update: Record<string, unknown> = {}
-
-    if (action === 'submit') {
-      update = { status: 'submitted' }
-    } else if (action === 'withdraw') {
-      update = { status: 'draft' }
-    } else if (action === 'start_review') {
-      update = { status: 'under_review' }
-    } else if (action === 'approve') {
-      update = { status: 'approved' }
-    } else if (action === 'reject') {
-      if (!rejectionReason.trim()) {
-        setError('Please provide a reason for rejection.')
-        setLoading(null)
-        return
-      }
-      update = { status: 'rejected', rejection_reason: rejectionReason }
-    }
-
-    const { error: err } = await supabase
-      .from('purchase_requests')
-      .update(update)
-      .eq('id', requestId)
-
-    if (err) {
-      setError(err.message)
-    } else {
-      router.refresh()
-      setShowRejectForm(false)
-    }
-    setLoading(null)
+  const TRANSITIONS: Record<string, { label: string; next: string }[]> = {
+    approved_to_build: [{ label: 'Mark Manufactured', next: 'manufactured' }],
+    manufactured: [{ label: 'Start Testing', next: 'in_test' }],
+    in_test: [
+      { label: 'Mark Passed', next: 'passed' },
+      { label: 'Mark Failed', next: 'failed' },
+    ],
+    passed: [{ label: 'Deploy', next: 'deployed' }],
+    failed: [{ label: 'Scrap', next: 'scrapped' }],
   }
 
-  if (!canEdit && !canSubmit && !canWithdraw && !canAdminReview && status !== 'approved') {
-    return null
+  const transitions = TRANSITIONS[currentStatus] ?? []
+  if (transitions.length === 0) return null
+
+  async function transition(next: string) {
+    setLoading(true)
+    const supabase = createClient()
+    await supabase.from('samples').update({ status: next }).eq('id', id)
+    router.refresh()
+    setLoading(false)
   }
 
   return (
-    <Card>
-      <CardHeader><CardTitle className="text-sm">Actions</CardTitle></CardHeader>
-      <CardContent className="space-y-2">
-        {canEdit && (
-          <Link href={`/requests/${requestId}/edit`} className="block">
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Edit className="w-4 h-4 mr-2" />Edit Request
-            </Button>
-          </Link>
-        )}
+    <div className="flex gap-2 flex-wrap">
+      {transitions.map(t => (
+        <Button
+          key={t.next}
+          size="sm"
+          variant={t.next === 'failed' || t.next === 'scrapped' ? 'outline' : 'default'}
+          disabled={loading}
+          onClick={() => transition(t.next)}
+        >
+          {t.label}
+        </Button>
+      ))}
+    </div>
+  )
+}
+
+export function RequestActions({
+  requestId,
+  status,
+  canEdit,
+  canSubmit,
+  canWithdraw,
+  canAdminReview,
+  isAdmin,
+  requestType,
+  variantId,
+  quantityToBuild,
+}: Props) {
+  const router = useRouter()
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function performAction(action: string) {
+    setLoading(true)
+    setError('')
+    const supabase = createClient()
+
+    try {
+      if (action === 'submit') {
+        const { error: err } = await supabase
+          .from('purchase_requests').update({ status: 'submitted' }).eq('id', requestId)
+        if (err) throw err
+      } else if (action === 'withdraw') {
+        const { error: err } = await supabase
+          .from('purchase_requests').update({ status: 'draft' }).eq('id', requestId)
+        if (err) throw err
+      } else if (action === 'approve') {
+        const { error: err } = await supabase
+          .from('purchase_requests')
+          .update({ status: 'approved', reviewed_at: new Date().toISOString() })
+          .eq('id', requestId)
+        if (err) throw err
+
+        if (requestType === 'build' && variantId && quantityToBuild && quantityToBuild > 0) {
+          const { count } = await supabase
+            .from('samples').select('*', { count: 'exact', head: true }).eq('variant_id', variantId)
+          const startSerial = (count ?? 0) + 1
+          const samplesToInsert = []
+          for (let i = 0; i < quantityToBuild; i++) {
+            samplesToInsert.push({
+              variant_id: variantId,
+              variant_serial: startSerial + i,
+              status: 'approved_to_build',
+            })
+          }
+          const { error: sampleErr } = await supabase.from('samples').insert(samplesToInsert)
+          if (sampleErr) throw sampleErr
+        }
+      } else if (action === 'reject') {
+        const { error: err } = await supabase
+          .from('purchase_requests')
+          .update({ status: 'rejected', reviewed_at: new Date().toISOString() })
+          .eq('id', requestId)
+        if (err) throw err
+      }
+
+      router.refresh()
+    } catch (e: any) {
+      setError(e.message ?? 'An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {error && <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>}
+      <div className="flex gap-2 flex-wrap">
         {canSubmit && (
-          <Button
-            size="sm"
-            className="w-full justify-start"
-            loading={loading === 'submit'}
-            onClick={() => performAction('submit')}
-          >
-            <Send className="w-4 h-4 mr-2" />Submit for Review
+          <Button size="sm" disabled={loading} onClick={() => performAction('submit')}>
+            Submit for Review
           </Button>
         )}
         {canWithdraw && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start"
-            loading={loading === 'withdraw'}
-            onClick={() => performAction('withdraw')}
-          >
-            <RotateCcw className="w-4 h-4 mr-2" />Withdraw to Draft
+          <Button size="sm" variant="outline" disabled={loading} onClick={() => performAction('withdraw')}>
+            Withdraw
           </Button>
         )}
-
-        {canAdminReview && status === 'submitted' && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full justify-start"
-            loading={loading === 'start_review'}
-            onClick={() => performAction('start_review')}
-          >
-            Start Review
-          </Button>
-        )}
-
         {canAdminReview && (
           <>
-            <Button
-              size="sm"
-              className="w-full justify-start bg-green-600 hover:bg-green-700"
-              loading={loading === 'approve'}
-              onClick={() => performAction('approve')}
-            >
-              <CheckCircle className="w-4 h-4 mr-2" />Approve
+            <Button size="sm" disabled={loading} onClick={() => performAction('approve')}>
+              {requestType === 'build'
+                ? `Approve & Create ${quantityToBuild ?? 1} Sample${(quantityToBuild ?? 1) > 1 ? 's' : ''}`
+                : 'Approve'}
             </Button>
-            {!showRejectForm ? (
-              <Button
-                variant="outline"
-                size="sm"
-                className="w-full justify-start text-red-600 border-red-200 hover:bg-red-50"
-                onClick={() => setShowRejectForm(true)}
-              >
-                <XCircle className="w-4 h-4 mr-2" />Reject
-              </Button>
-            ) : (
-              <div className="space-y-2 border border-red-200 rounded-md p-3 bg-red-50">
-                <label className="text-xs font-medium text-red-700">Reason for rejection</label>
-                <textarea
-                  className="w-full rounded border border-red-300 bg-white px-2 py-1.5 text-sm min-h-[60px] focus:outline-none focus:ring-1 focus:ring-red-400"
-                  value={rejectionReason}
-                  onChange={e => setRejectionReason(e.target.value)}
-                  placeholder="Explain why this request is being rejected..."
-                />
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    className="bg-red-600 hover:bg-red-700 flex-1"
-                    loading={loading === 'reject'}
-                    onClick={() => performAction('reject')}
-                  >
-                    Confirm Reject
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => { setShowRejectForm(false); setRejectionReason('') }}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
+            <Button size="sm" variant="outline" disabled={loading} onClick={() => performAction('reject')}>
+              Reject
+            </Button>
           </>
         )}
-
-        {isAdmin && status === 'approved' && (
-          <Link href={`/orders/new?request=${requestId}`} className="block">
-            <Button size="sm" className="w-full justify-start bg-indigo-600 hover:bg-indigo-700">
-              <ShoppingCart className="w-4 h-4 mr-2" />Create Purchase Order
-            </Button>
-          </Link>
-        )}
-
-        {error && <p className="text-xs text-[var(--destructive)] bg-red-50 px-2 py-1.5 rounded">{error}</p>}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }
