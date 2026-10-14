@@ -30,10 +30,6 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
   const [location, setLocation] = useState('')
   const [buildObjective, setBuildObjective] = useState('')
   const [notes, setNotes] = useState('')
-  const [materialDate, setMaterialDate] = useState('')
-  const [manufacturingDate, setManufacturingDate] = useState('')
-  const [manufactureDate, setManufactureDate] = useState('')
-  const [testDate, setTestDate] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -68,10 +64,6 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
         setLocation((sample as any).location ?? '')
         setBuildObjective((sample as any).build_objective ?? '')
         setNotes((sample as any).notes ?? '')
-        setMaterialDate((sample as any).material_date ?? '')
-        setManufacturingDate((sample as any).manufacturing_date ?? '')
-        setManufactureDate((sample as any).manufacture_date ?? '')
-        setTestDate((sample as any).test_date ?? '')
       }
       setLoading(false)
     })
@@ -107,10 +99,6 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
         location: location || null,
         build_objective: buildObjective || null,
         notes: notes || null,
-        material_date: materialDate || null,
-        manufacturing_date: manufacturingDate || null,
-        manufacture_date: manufactureDate || null,
-        test_date: testDate || null,
         updated_at: new Date().toISOString(),
       } as any)
       .eq('id', sampleId)
@@ -218,29 +206,6 @@ export default function EditSamplePage({ params }: { params: Promise<{ id: strin
                   className={inputClass}
                 />
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Milestone Dates */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Milestone Dates</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelClass}>Material Ready</label>
-              <input type="date" value={materialDate} onChange={e => setMaterialDate(e.target.value)} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Manufacturing Start</label>
-              <input type="date" value={manufacturingDate} onChange={e => setManufacturingDate(e.target.value)} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Manufactured</label>
-              <input type="date" value={manufactureDate} onChange={e => setManufactureDate(e.target.value)} className={inputClass} />
-            </div>
-            <div>
-              <label className={labelClass}>Test Date</label>
-              <input type="date" value={testDate} onChange={e => setTestDate(e.target.value)} className={inputClass} />
             </div>
           </div>
         </div>
