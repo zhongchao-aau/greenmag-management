@@ -44,7 +44,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   if (!user) redirect('/login')
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).single() as any
+  const { data: profileData } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle() as any
   const profile = profileData as { role: string } | null
   if (!profile) redirect('/login')
   const isAdmin = profile.role === 'admin'
@@ -69,7 +69,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
 
   if (!shipment) notFound()
 
-  const isFromChina = !shipment.origin || shipment.origin === 'china' || shipment.origin.startsWith('cn_')
+  const isFromChina = Boolean(shipment.origin) && (shipment.origin === 'china' || shipment.origin.startsWith('cn_'))
 
   const [{ data: items }, { data: events }, { data: linkedOrdersData }, { data: linkedSamplesData }] = await Promise.all([
     supabase.from('shipment_items')
@@ -108,7 +108,6 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   const linkedSamples: LinkedSample[] = (linkedSamplesData ?? [])
     .map((row: { sample: unknown }) => row.sample as LinkedSample)
     .filter(Boolean)
-
 
   // For component_order shipments with no direct shipment_items, derive from linked orders
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -427,4 +426,4 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       </div>
     </div>
   )
-}
+      }
