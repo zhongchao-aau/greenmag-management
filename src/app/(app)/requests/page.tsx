@@ -81,7 +81,7 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
+              <TableHead className="w-36">ID</TableHead>
               {isAdmin && <TableHead>Requester</TableHead>}
               <TableHead>Purpose</TableHead>
               <TableHead>Status</TableHead>
