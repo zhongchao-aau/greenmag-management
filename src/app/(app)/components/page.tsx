@@ -75,7 +75,7 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
+              <TableHead className="w-36">ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Supplier</TableHead>
               <TableHead>Unit</TableHead>
