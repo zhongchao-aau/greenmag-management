@@ -14,8 +14,11 @@ const STATUSES = [
   { value: 'scrapped', label: 'Scrapped' },
 ]
 
-const DANGER_STATUSES = ['scrapped']
-const WARNING_STATUSES = ['retired', 'failure_analysis']
+function toLocalDatetimeValue(date: Date): string {
+  const offset = date.getTimezoneOffset()
+  const local = new Date(date.getTime() - offset * 60000)
+  return local.toISOString().slice(0, 16)
+}
 
 interface SampleActionsProps {
   sampleId: string
@@ -23,48 +26,93 @@ interface SampleActionsProps {
 }
 
 export default function SampleActions({ sampleId, currentStatus }: SampleActionsProps) {
-  const [loading, setLoading] = useState<string | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState(currentStatus)
+  const [notes, setNotes] = useState('')
+  const [changedAt, setChangedAt] = useState(() => toLocalDatetimeValue(new Date()))
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
-  const available = STATUSES.filter(s => s.value !== currentStatus)
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (selectedStatus === currentStatus) return
+    setLoading(true)
 
-  async function handleTransition(nextStatus: string) {
-    setLoading(nextStatus)
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser()
+    const changedAtUTC = new Date(changedAt).toISOString()
+
+    const { error: updateError } = await supabase
       .from('samples')
-      .update({ status: nextStatus, updated_at: new Date().toISOString() })
+      .update({ status: selectedStatus, updated_at: new Date().toISOString() })
       .eq('id', sampleId)
-    setLoading(null)
-    if (error) {
-      alert('Error updating status: ' + error.message)
-    } else {
-      router.refresh()
+
+    if (updateError) {
+      alert('Error updating status: ' + updateError.message)
+      setLoading(false)
+      return
     }
+
+    await supabase.from('sample_status_history').insert({
+      sample_id: sampleId,
+      status: selectedStatus,
+      changed_by: user?.email ?? null,
+      notes: notes.trim() || null,
+      changed_at: changedAtUTC,
+    })
+
+    setNotes('')
+    setChangedAt(toLocalDatetimeValue(new Date()))
+    setLoading(false)
+    router.refresh()
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {available.map((s) => {
-        const isDanger = DANGER_STATUSES.includes(s.value)
-        const isWarning = WARNING_STATUSES.includes(s.value)
-        const baseClass = 'px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50'
-        const colorClass = isDanger
-          ? 'bg-red-600 text-white hover:bg-red-700'
-          : isWarning
-          ? 'bg-amber-500 text-white hover:bg-amber-600'
-          : 'bg-indigo-600 text-white hover:bg-indigo-700'
-        return (
-          <button
-            key={s.value}
-            onClick={() => handleTransition(s.value)}
-            disabled={loading !== null}
-            className={`${baseClass} ${colorClass}`}
-          >
-            {loading === s.value ? 'Updating…' : `→ ${s.label}`}
-          </button>
-        )
-      })}
-    </div>
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">New Status</label>
+        <select
+          value={selectedStatus}
+          onChange={e => setSelectedStatus(e.target.value)}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          {STATUSES.map(s => (
+            <option key={s.value} value={s.value} disabled={s.value === currentStatus}>
+              {s.label}{s.value === currentStatus ? ' (current)' : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Date &amp; Time</label>
+        <input
+          type="datetime-local"
+          value={changedAt}
+          onChange={e => setChangedAt(e.target.value)}
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Notes <span className="text-gray-400 font-normal">(optional)</span>
+        </label>
+        <textarea
+          value={notes}
+          onChange={e => setNotes(e.target.value)}
+          rows={2}
+          placeholder="Add notes about this status change..."
+          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
+        />
+      </div>
+
+      <button
+        type="submit"
+        disabled={loading || selectedStatus === currentStatus}
+        className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        {loading ? 'Updating…' : 'Update Status'}
+      </button>
+    </form>
   )
 }
