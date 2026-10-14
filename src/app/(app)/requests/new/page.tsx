@@ -27,7 +27,7 @@ interface Component {
   code: string
   name: string
   unit: string
-  type: string
+  component_type: string
 }
 
 interface Product {
@@ -45,7 +45,7 @@ interface Variant {
 
 function generateRequestCode() {
   const ts = Date.now().toString(36).toUpperCase()
-  const rand = Math.random().toString(36).substr(2, 4).toUpperCase()
+  const rand = Math.random().toString(36).slice(2, 6).toUpperCase()
   return `GM-REQ-${ts}${rand}`
 }
 
@@ -77,7 +77,7 @@ export default function NewRequestPage() {
     async function load() {
       const supabase = createClient()
       const [{ data: comps }, { data: vars }] = await Promise.all([
-        supabase.from('components').select('id, code, name, unit, type').eq('is_active', true).order('name'),
+        supabase.from('components').select('id, code, name, unit, component_type').eq('is_active', true).order('name'),
         supabase.from('product_variants').select('id, code, name, product_id, products(id, name)').eq('status', 'active').order('name'),
       ])
       setComponents((comps as any) ?? [])
@@ -102,7 +102,7 @@ export default function NewRequestPage() {
 
   const filteredComponents = componentTypeFilter === 'all'
     ? components
-    : components.filter(c => c.type === componentTypeFilter)
+    : components.filter(c => c.component_type === componentTypeFilter)
 
   const filteredVariants = productId
     ? variants.filter(v => (v.products as any)?.id === productId)
@@ -248,7 +248,7 @@ export default function NewRequestPage() {
                       >
                         <option value="">Select component…</option>
                         {filteredComponents.map(c => (
-                          <option key={c.id} value={c.id}>{c.name} ({c.unit}) — {c.type.replace('_', ' ')}</option>
+                          <option key={c.id} value={c.id}>{c.name} ({c.unit}) — {(c.component_type ?? '').replace('_', ' ')}</option>
                         ))}
                       </select>
                     </div>
