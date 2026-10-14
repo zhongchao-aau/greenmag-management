@@ -3,10 +3,22 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, ExternalLink, Truck, Package } from 'lucide-react'
-import { shipmentStatusClass, SHIPMENT_STATUS_LABELS, formatDate, formatRelative, formatQuantity } from '@/lib/utils'
+import { ArrowLeft, ExternalLink, Truck, Package, ArrowRight, FlaskConical } from 'lucide-react'
+import { shipmentStatusClass, SHIPMENT_STATUS_LABELS, formatDate, formatQuantity } from '@/lib/utils'
 import { ShipmentActions } from './shipment-actions'
 export const dynamic = 'force-dynamic'
+
+const LOCATION_LABELS: Record<string, string> = {
+  china:      'China',
+  dk_aalborg: 'Aalborg, DK',
+  dk_hammel:  'Hammel, DK',
+  lv:         'Latvia',
+}
+
+const SHIPMENT_TYPE_LABELS: Record<string, string> = {
+  component_order: 'Component Order',
+  sample_transfer: 'Sample Transfer',
+}
 
 export default async function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -34,12 +46,16 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     expected_delivery: string | null; actual_delivery: string | null; notes: string | null;
     china_carrier: string | null; china_tracking_number: string | null; china_tracking_url: string | null; china_status: string | null;
     eu_carrier: string | null; eu_tracking_number: string | null; eu_tracking_url: string | null; eu_status: string | null;
+    origin: string | null; destination: string | null; shipment_type: string | null;
     order: { id: string; code: string; supplier: { name: string } | null } | null;
   } | null
 
   if (!shipment) notFound()
 
-  const [{ data: items }, { data: events }, { data: linkedOrdersData }] = await Promise.all([
+  // Legacy shipments without origin default to China (show both legs)
+  const isFromChina = !shipment.origin || shipment.origin === 'china'
+
+  const [{ data: items }, { data: events }, { data: linkedOrdersData }, { data: linkedSamplesData }] = await Promise.all([
     supabase.from('shipment_items')
       .select('id, quantity_shipped, component:components(id, code, name, unit)')
       .eq('shipment_id', id),
@@ -49,6 +65,9 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       .order('event_date', { ascending: false }),
     supabase.from('shipment_orders')
       .select('order:purchase_orders(id, code, supplier:suppliers(name))')
+      .eq('shipment_id', id),
+    supabase.from('shipment_samples')
+      .select('sample:samples(id, code, status, product_variants(name, products(name)))')
       .eq('shipment_id', id),
   ])
 
@@ -63,6 +82,11 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   if (shipment.order && !seen.has(shipment.order.id)) {
     linkedOrders.push(shipment.order)
   }
+
+  type LinkedSample = { id: string; code: string; status: string; product_variants: { name: string; products: { name: string } | null } | null }
+  const linkedSamples: LinkedSample[] = (linkedSamplesData ?? [])
+    .map((row: { sample: unknown }) => row.sample as LinkedSample)
+    .filter(Boolean)
 
   const isDelivered = shipment.status === 'delivered'
   const { data: existingReceipt } = await supabase
@@ -84,13 +108,23 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
           <Card>
             <CardHeader>
               <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-3 mb-2">
+                <div className="w-full">
+                  <div className="flex items-center gap-3 mb-2 flex-wrap">
                     <Truck className="w-5 h-5 text-indigo-500" />
                     <span className="font-mono text-sm text-[var(--muted-foreground)]">{shipment.code}</span>
                     <Badge className={shipmentStatusClass(shipment.status as never)}>{SHIPMENT_STATUS_LABELS[shipment.status as never]}</Badge>
+                    {shipment.shipment_type && (
+                      <Badge className="badge-under-review text-xs">{SHIPMENT_TYPE_LABELS[shipment.shipment_type] ?? shipment.shipment_type}</Badge>
+                    )}
                   </div>
                   <CardTitle>{shipment.description ?? shipment.code}</CardTitle>
+                  {(shipment.origin || shipment.destination) && (
+                    <div className="flex items-center gap-2 mt-2 text-sm text-[var(--muted-foreground)]">
+                      <span>{LOCATION_LABELS[shipment.origin ?? ''] ?? shipment.origin ?? '—'}</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                      <span>{LOCATION_LABELS[shipment.destination ?? ''] ?? shipment.destination ?? '—'}</span>
+                    </div>
+                  )}
                   {linkedOrders.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {linkedOrders.map(o => (
@@ -105,49 +139,49 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             </CardHeader>
           </Card>
 
-          {/* Dual-leg tracking */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* China leg */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm flex items-center gap-2">
-                  🇨🇳 China Leg
-                  {shipment.china_status && (
-                    <Badge className="badge-under-review text-xs">{shipment.china_status}</Badge>
-                  )}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {shipment.china_carrier ? (
-                  <>
-                    <div>
-                      <p className="text-xs text-[var(--muted-foreground)]">Carrier</p>
-                      <p className="font-medium">{shipment.china_carrier}</p>
-                    </div>
-                    {shipment.china_tracking_number && (
+          {/* Tracking legs */}
+          <div className={`grid grid-cols-1 gap-4 ${isFromChina ? 'sm:grid-cols-2' : ''}`}>
+            {isFromChina && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-sm flex items-center gap-2">
+                    🇨🇳 China Leg
+                    {shipment.china_status && (
+                      <Badge className="badge-under-review text-xs">{shipment.china_status}</Badge>
+                    )}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2 text-sm">
+                  {shipment.china_carrier ? (
+                    <>
                       <div>
-                        <p className="text-xs text-[var(--muted-foreground)]">Tracking #</p>
-                        <p className="font-mono text-xs">{shipment.china_tracking_number}</p>
+                        <p className="text-xs text-[var(--muted-foreground)]">Carrier</p>
+                        <p className="font-medium">{shipment.china_carrier}</p>
                       </div>
-                    )}
-                    {shipment.china_tracking_url && (
-                      <a href={shipment.china_tracking_url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-[var(--primary)] hover:underline text-xs mt-1">
-                        <ExternalLink className="w-3 h-3" />Track on carrier website
-                      </a>
-                    )}
-                  </>
-                ) : (
-                  <p className="text-[var(--muted-foreground)] text-sm">No China leg info yet.</p>
-                )}
-              </CardContent>
-            </Card>
+                      {shipment.china_tracking_number && (
+                        <div>
+                          <p className="text-xs text-[var(--muted-foreground)]">Tracking #</p>
+                          <p className="font-mono text-xs">{shipment.china_tracking_number}</p>
+                        </div>
+                      )}
+                      {shipment.china_tracking_url && (
+                        <a href={shipment.china_tracking_url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-[var(--primary)] hover:underline text-xs mt-1">
+                          <ExternalLink className="w-3 h-3" />Track on carrier website
+                        </a>
+                      )}
+                    </>
+                  ) : (
+                    <p className="text-[var(--muted-foreground)] text-sm">No China leg info yet.</p>
+                  )}
+                </CardContent>
+              </Card>
+            )}
 
-            {/* EU leg */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
-                  🇪🇺 EU Leg
+                  {isFromChina ? '🇪🇺 EU Leg' : '🚚 Carrier'}
                   {shipment.eu_status && (
                     <Badge className="badge-approved text-xs">{shipment.eu_status}</Badge>
                   )}
@@ -174,16 +208,16 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                     )}
                   </>
                 ) : (
-                  <p className="text-[var(--muted-foreground)] text-sm">EU carrier not yet assigned.</p>
+                  <p className="text-[var(--muted-foreground)] text-sm">{isFromChina ? 'EU carrier not yet assigned.' : 'Carrier not yet assigned.'}</p>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          {/* Contents */}
+          {/* Components */}
           {(items ?? []).length > 0 && (
             <Card>
-              <CardHeader><CardTitle>Contents</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Components</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   {(items ?? []).map((item: { id: string; quantity_shipped: number; component: { id: string; code: string; name: string; unit: string } | null }) => (
@@ -200,6 +234,32 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                         ) : '—'}
                       </div>
                       <span className="text-sm font-medium">{formatQuantity(item.quantity_shipped)} {item.component?.unit}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Linked samples */}
+          {linkedSamples.length > 0 && (
+            <Card>
+              <CardHeader><CardTitle className="flex items-center gap-2"><FlaskConical className="w-4 h-4" />Samples</CardTitle></CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {linkedSamples.map(s => (
+                    <div key={s.id} className="flex items-center justify-between py-1.5 border-b border-[var(--border)] last:border-0">
+                      <div className="flex items-center gap-3">
+                        <FlaskConical className="w-4 h-4 text-[var(--muted-foreground)]" />
+                        <div>
+                          <p className="text-sm font-medium">{s.product_variants?.name ?? s.code}</p>
+                          <p className="text-xs font-mono text-[var(--muted-foreground)]">{s.code}</p>
+                          {s.product_variants?.products?.name && (
+                            <p className="text-xs text-[var(--muted-foreground)]">{s.product_variants.products.name}</p>
+                          )}
+                        </div>
+                      </div>
+                      <Badge className="badge-under-review text-xs capitalize">{s.status.replace(/_/g, ' ')}</Badge>
                     </div>
                   ))}
                 </div>
