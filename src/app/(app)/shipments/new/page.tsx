@@ -3,289 +3,467 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ArrowLeft, Plus, Minus } from 'lucide-react'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
 
-// ── Location constants ──────────────────────────────────────────────────────
-export const LOCATIONS: { value: string; label: string }[] = [
+// ─── Location data ────────────────────────────────────────────────────────────
+const PREFERRED_LOCS = [
   { value: 'china',      label: 'China' },
   { value: 'dk_aalborg', label: 'Aalborg, Denmark' },
   { value: 'dk_hammel',  label: 'Hammel, Denmark' },
   { value: 'lv',         label: 'Latvia' },
 ]
+const CHINA_PROVINCES = [
+  { value: 'cn_beijing',        label: 'Beijing' },
+  { value: 'cn_chongqing',      label: 'Chongqing' },
+  { value: 'cn_shanghai',       label: 'Shanghai' },
+  { value: 'cn_tianjin',        label: 'Tianjin' },
+  { value: 'cn_anhui',          label: 'Anhui' },
+  { value: 'cn_fujian',         label: 'Fujian' },
+  { value: 'cn_gansu',          label: 'Gansu' },
+  { value: 'cn_guangdong',      label: 'Guangdong' },
+  { value: 'cn_guizhou',        label: 'Guizhou' },
+  { value: 'cn_hainan',         label: 'Hainan' },
+  { value: 'cn_hebei',          label: 'Hebei' },
+  { value: 'cn_heilongjiang',   label: 'Heilongjiang' },
+  { value: 'cn_henan',          label: 'Henan' },
+  { value: 'cn_hubei',          label: 'Hubei' },
+  { value: 'cn_hunan',          label: 'Hunan' },
+  { value: 'cn_jiangsu',        label: 'Jiangsu' },
+  { value: 'cn_jiangxi',        label: 'Jiangxi' },
+  { value: 'cn_jilin',          label: 'Jilin' },
+  { value: 'cn_liaoning',       label: 'Liaoning' },
+  { value: 'cn_qinghai',        label: 'Qinghai' },
+  { value: 'cn_shaanxi',        label: 'Shaanxi' },
+  { value: 'cn_shandong',       label: 'Shandong' },
+  { value: 'cn_shanxi',         label: 'Shanxi' },
+  { value: 'cn_sichuan',        label: 'Sichuan' },
+  { value: 'cn_yunnan',         label: 'Yunnan' },
+  { value: 'cn_zhejiang',       label: 'Zhejiang' },
+  { value: 'cn_guangxi',        label: 'Guangxi' },
+  { value: 'cn_inner_mongolia', label: 'Inner Mongolia' },
+  { value: 'cn_ningxia',        label: 'Ningxia' },
+  { value: 'cn_tibet',          label: 'Tibet' },
+  { value: 'cn_xinjiang',       label: 'Xinjiang' },
+  { value: 'cn_hongkong',       label: 'Hong Kong' },
+  { value: 'cn_macau',          label: 'Macau' },
+]
+const WORLD_LOCS = [
+  { value: 'at',          label: 'Austria' },
+  { value: 'be',          label: 'Belgium' },
+  { value: 'cz',          label: 'Czech Republic' },
+  { value: 'dk',          label: 'Denmark' },
+  { value: 'dk_cph',      label: 'Copenhagen, Denmark' },
+  { value: 'ee',          label: 'Estonia' },
+  { value: 'fi',          label: 'Finland' },
+  { value: 'fr',          label: 'France' },
+  { value: 'de',          label: 'Germany' },
+  { value: 'de_berlin',   label: 'Berlin, Germany' },
+  { value: 'de_hamburg',  label: 'Hamburg, Germany' },
+  { value: 'de_munich',   label: 'Munich, Germany' },
+  { value: 'hu',          label: 'Hungary' },
+  { value: 'ie',          label: 'Ireland' },
+  { value: 'it',          label: 'Italy' },
+  { value: 'jp',          label: 'Japan' },
+  { value: 'kr',          label: 'South Korea' },
+  { value: 'lv_riga',     label: 'Riga, Latvia' },
+  { value: 'lt',          label: 'Lithuania' },
+  { value: 'nl',          label: 'Netherlands' },
+  { value: 'no',          label: 'Norway' },
+  { value: 'pl',          label: 'Poland' },
+  { value: 'pt',          label: 'Portugal' },
+  { value: 'ro',          label: 'Romania' },
+  { value: 'sg',          label: 'Singapore' },
+  { value: 'sk',          label: 'Slovakia' },
+  { value: 'es',          label: 'Spain' },
+  { value: 'se',          label: 'Sweden' },
+  { value: 'ch',          label: 'Switzerland' },
+  { value: 'tw',          label: 'Taiwan' },
+  { value: 'gb',          label: 'United Kingdom' },
+  { value: 'gb_london',   label: 'London, UK' },
+  { value: 'ua',          label: 'Ukraine' },
+  { value: 'us',          label: 'United States' },
+  { value: 'us_ny',       label: 'New York, USA' },
+  { value: 'us_la',       label: 'Los Angeles, USA' },
+  { value: 'ca',          label: 'Canada' },
+  { value: 'au',          label: 'Australia' },
+  { value: 'in_india',    label: 'India' },
+]
+
 export const LOCATION_LABELS: Record<string, string> = Object.fromEntries(
-  LOCATIONS.map(l => [l.value, l.label])
+  [...PREFERRED_LOCS, ...CHINA_PROVINCES, ...WORLD_LOCS].map(l => [l.value, l.label])
 )
+
+function LocationSelect({ id, value, onChange, placeholder = 'Not specified' }: {
+  id: string; value: string; onChange: (v: string) => void; placeholder?: string
+}) {
+  return (
+    <select id={id} value={value} onChange={e => onChange(e.target.value)}
+      className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]">
+      <option value="">{'— ' + placeholder + ' —'}</option>
+      <optgroup label="Preferred">
+        {PREFERRED_LOCS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+      </optgroup>
+      <optgroup label="China — by Province / Region">
+        {CHINA_PROVINCES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+      </optgroup>
+      <optgroup label="Europe & World">
+        {WORLD_LOCS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+      </optgroup>
+    </select>
+  )
+}
+
+type ShipmentType = 'component_order' | 'sample_transfer' | 'material_transfer'
 
 export default function NewShipmentPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const preOrderId = searchParams.get('order')
+  const params = useSearchParams()
+  const preOrderId = params.get('order')
+  const supabase = createClient()
 
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  // shipment type: 'component_order' | 'sample_transfer'
-  const [shipmentType, setShipmentType] = useState<'component_order' | 'sample_transfer'>('component_order')
-
-  // location
+  const [shipmentType, setShipmentType] = useState<ShipmentType>('component_order')
   const [origin, setOrigin] = useState('china')
   const [destination, setDestination] = useState('dk_aalborg')
-
-  // linked orders (for component_order type)
-  const [orders, setOrders] = useState<{ id: string; code: string; supplier: { name: string } | null }[]>([])
+  const [description, setDescription] = useState('')
+  const [expectedDelivery, setExpectedDelivery] = useState('')
+  const [notes, setNotes] = useState('')
+  const [chinaCarrier, setChinaCarrier] = useState('')
+  const [chinaTN, setChinaTN] = useState('')
+  const [chinaTU, setChinaTU] = useState('')
+  const [euCarrier, setEuCarrier] = useState('')
+  const [euTN, setEuTN] = useState('')
+  const [euTU, setEuTU] = useState('')
+  const [orders, setOrders] = useState<{ id: string; code: string; status: string; supplier: { name: string } | null }[]>([])
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(preOrderId ? [preOrderId] : [])
-
-  // linked samples (for sample_transfer type)
   const [samples, setSamples] = useState<{ id: string; code: string; status: string; product_variants: { name: string; products: { name: string } | null } | null }[]>([])
   const [selectedSampleIds, setSelectedSampleIds] = useState<string[]>([])
+  const [components, setComponents] = useState<{ id: string; code: string; name: string; unit: string }[]>([])
+  const [materialQtys, setMaterialQtys] = useState<Record<string, number>>({})
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const [form, setForm] = useState({
-    description: '',
-    expected_delivery: '',
-    china_carrier: '', china_tracking_number: '', china_tracking_url: '',
-    eu_carrier: '',    eu_tracking_number: '',    eu_tracking_url: '',
-    notes: '',
-  })
-
-  const isFromChina = origin === 'china'
+  const isFromChina = origin === 'china' || origin.startsWith('cn_')
 
   useEffect(() => {
-    const supabase = createClient()
-    // Load orders
-    supabase.from('purchase_orders')
-      .select('id, code, supplier:suppliers(name)')
-      .not('status', 'in', '("closed","received")')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setOrders(data ?? []))
-    // Load samples
-    supabase.from('samples')
-      .select('id, code, status, product_variants(name, products(name))')
-      .not('status', 'in', '("scrapped")')
-      .order('created_at', { ascending: false })
-      .then(({ data }) => setSamples((data ?? []) as typeof samples))
+    async function load() {
+      const [ordersRes, samplesRes, componentsRes] = await Promise.all([
+        supabase
+          .from('purchase_orders')
+          .select('id, code, status, supplier:suppliers(name)')
+          .not('status', 'in', '(completed,cancelled,closed,fully_received)')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('samples')
+          .select('id, code, status, product_variants(name, products(name))')
+          .not('status', 'in', '(scrapped)')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('components')
+          .select('id, code, name, unit')
+          .order('name'),
+      ])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setOrders((ordersRes.data ?? []) as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setSamples((samplesRes.data ?? []) as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      setComponents((componentsRes.data ?? []) as any)
+    }
+    load()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function set(field: string, value: string) { setForm(f => ({ ...f, [field]: value })) }
-  function toggleOrder(id: string) { setSelectedOrderIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]) }
-  function toggleSample(id: string) { setSelectedSampleIds(p => p.includes(id) ? p.filter(x => x !== id) : [...p, id]) }
+  function toggleOrder(id: string) {
+    setSelectedOrderIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+  function toggleSample(id: string) {
+    setSelectedSampleIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  }
+  function toggleMaterial(componentId: string) {
+    setMaterialQtys(prev => {
+      const next = { ...prev }
+      if (componentId in next) { delete next[componentId] } else { next[componentId] = 1 }
+      return next
+    })
+  }
+  function setMaterialQty(componentId: string, qty: number) {
+    setMaterialQtys(prev => ({ ...prev, [componentId]: Math.max(1, qty) }))
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
-    setLoading(true)
-    const supabase = createClient()
+    setSubmitting(true)
+    setError(null)
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: shipment, error: err } = await (supabase.from('shipments') as any)
-      .insert({
-        shipment_type: shipmentType,
-        origin,
-        destination,
-        order_id: (shipmentType === 'component_order' && selectedOrderIds.length > 0) ? selectedOrderIds[0] : null,
-        description: form.description || null,
-        expected_delivery: form.expected_delivery || null,
-        china_carrier: form.china_carrier || null,
-        china_tracking_number: form.china_tracking_number || null,
-        china_tracking_url: form.china_tracking_url || null,
-        eu_carrier: isFromChina ? (form.eu_carrier || null) : null,
-        eu_tracking_number: isFromChina ? (form.eu_tracking_number || null) : null,
-        eu_tracking_url: isFromChina ? (form.eu_tracking_url || null) : null,
-        notes: form.notes || null,
-        status: 'created',
-      })
-      .select('id')
-      .single()
+    const { data, error: err } = await supabase.from('shipments').insert({
+      description: description || null,
+      expected_delivery: expectedDelivery || null,
+      notes: notes || null,
+      shipment_type: shipmentType,
+      origin: origin || null,
+      destination: destination || null,
+      china_carrier: isFromChina ? (chinaCarrier || null) : null,
+      china_tracking_number: isFromChina ? (chinaTN || null) : null,
+      china_tracking_url: isFromChina ? (chinaTU || null) : null,
+      eu_carrier: euCarrier || null,
+      eu_tracking_number: euTN || null,
+      eu_tracking_url: euTU || null,
+    }).select('id').single()
 
-    if (err || !shipment) { setError(err?.message ?? 'Failed to create shipment'); setLoading(false); return }
+    if (err || !data) {
+      setError(err?.message ?? 'Failed to create shipment')
+      setSubmitting(false)
+      return
+    }
 
-    // Insert junction rows
+    const shipmentId = (data as { id: string }).id
+
     if (shipmentType === 'component_order' && selectedOrderIds.length > 0) {
-      await supabase.from('shipment_orders').insert(
-        selectedOrderIds.map(order_id => ({ shipment_id: shipment.id, order_id }))
-      )
-    }
-    if (shipmentType === 'sample_transfer' && selectedSampleIds.length > 0) {
-      await supabase.from('shipment_samples').insert(
-        selectedSampleIds.map(sample_id => ({ shipment_id: shipment.id, sample_id }))
-      )
+      const rows = selectedOrderIds.map(oid => ({ shipment_id: shipmentId, order_id: oid }))
+      await supabase.from('shipment_orders').insert(rows)
+      await supabase.from('shipments').update({ order_id: selectedOrderIds[0] }).eq('id', shipmentId)
     }
 
-    router.push(`/shipments/${shipment.id}`)
-    router.refresh()
+    if (shipmentType === 'sample_transfer' && selectedSampleIds.length > 0) {
+      const rows = selectedSampleIds.map(sid => ({ shipment_id: shipmentId, sample_id: sid }))
+      await supabase.from('shipment_samples').insert(rows)
+    }
+
+    if (shipmentType === 'material_transfer') {
+      const rows = Object.entries(materialQtys)
+        .filter(([, qty]) => qty > 0)
+        .map(([componentId, qty]) => ({
+          shipment_id: shipmentId,
+          component_id: componentId,
+          quantity_shipped: qty,
+        }))
+      if (rows.length > 0) {
+        await supabase.from('shipment_items').insert(rows)
+      }
+    }
+
+    router.push('/shipments/' + shipmentId)
   }
 
-  const selectClass = 'w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent'
+  const TYPES = [
+    { value: 'component_order' as ShipmentType,   label: 'Component Order',   emoji: '📦' },
+    { value: 'sample_transfer' as ShipmentType,   label: 'Sample Transfer',   emoji: '🧪' },
+    { value: 'material_transfer' as ShipmentType, label: 'Material Transfer', emoji: '🏭' },
+  ]
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
       <Link href="/shipments" className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] mb-6">
         <ArrowLeft className="w-4 h-4" />Back to Shipments
       </Link>
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold">New Shipment</h1>
-        <p className="text-sm text-[var(--muted-foreground)] mt-0.5">Track a shipment of components or samples between locations.</p>
-      </div>
+      <h1 className="text-2xl font-bold mb-6">New Shipment</h1>
 
       <form onSubmit={handleSubmit} className="space-y-6">
 
-        {/* Type toggle */}
         <Card>
           <CardHeader><CardTitle>Shipment Type</CardTitle></CardHeader>
           <CardContent>
-            <div className="flex gap-3">
-              {(['component_order', 'sample_transfer'] as const).map(t => (
-                <button
-                  key={t} type="button"
-                  onClick={() => setShipmentType(t)}
-                  className={`flex-1 rounded-md border px-4 py-2.5 text-sm font-medium transition-colors ${
-                    shipmentType === t
-                      ? 'border-[var(--primary)] bg-[var(--primary)] text-white'
-                      : 'border-[var(--border)] hover:border-[var(--primary)] text-[var(--foreground)]'
-                  }`}
-                >
-                  {t === 'component_order' ? '📦 Component Order' : '🧪 Sample Transfer'}
+            <div className="flex gap-3 flex-wrap">
+              {TYPES.map(t => (
+                <button key={t.value} type="button" onClick={() => setShipmentType(t.value)}
+                  className={'flex items-center gap-2 px-4 py-2 rounded-lg border text-sm font-medium transition-colors ' + (shipmentType === t.value ? 'bg-[var(--primary)] text-[var(--primary-foreground)] border-[var(--primary)]' : 'border-[var(--border)] hover:bg-[var(--accent)]')}>
+                  <span>{t.emoji}</span>{t.label}
                 </button>
               ))}
             </div>
-            <p className="text-xs text-[var(--muted-foreground)] mt-2">
-              {shipmentType === 'component_order'
-                ? 'Shipment of purchased components from a supplier.'
-                : 'Transfer of built samples between cooperator sites.'}
-            </p>
           </CardContent>
         </Card>
 
-        {/* Route */}
         <Card>
           <CardHeader><CardTitle>Route</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Origin</label>
-                <select className={selectClass} value={origin} onChange={e => setOrigin(e.target.value)}>
-                  {LOCATIONS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">Destination</label>
-                <select className={selectClass} value={destination} onChange={e => setDestination(e.target.value)}>
-                  {LOCATIONS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-                </select>
-              </div>
+          <CardContent className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5" htmlFor="origin">Origin</label>
+              <LocationSelect id="origin" value={origin} onChange={setOrigin} placeholder="Select origin" />
             </div>
-            {isFromChina && (
-              <p className="text-xs text-indigo-600 bg-indigo-50 rounded px-3 py-1.5">
-                🇨🇳→🇪🇺 Two-leg shipment — you can enter both a China and an EU carrier below.
-              </p>
-            )}
+            <div>
+              <label className="block text-sm font-medium mb-1.5" htmlFor="destination">Destination</label>
+              <LocationSelect id="destination" value={destination} onChange={setDestination} placeholder="Select destination" />
+            </div>
           </CardContent>
         </Card>
 
-        {/* Linked content */}
+        {isFromChina && (
+          <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
+            Origin is in China — two tracking legs will be recorded (China leg + EU/international leg).
+          </p>
+        )}
+
         <Card>
-          <CardHeader>
-            <CardTitle>{shipmentType === 'component_order' ? 'Linked Purchase Orders' : 'Linked Samples'}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {shipmentType === 'component_order' ? (
-              <>
-                <p className="text-xs text-[var(--muted-foreground)] mb-2">Select one or more purchase orders included in this shipment.</p>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto border border-[var(--border)] rounded-md p-2">
-                  {orders.length === 0 && <p className="text-sm text-[var(--muted-foreground)] px-1">No open orders</p>}
+          <CardHeader><CardTitle>Details</CardTitle></CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Description</label>
+              <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="Optional description"
+                className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Expected Delivery</label>
+              <input type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)}
+                className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Notes</label>
+              <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]" />
+            </div>
+          </CardContent>
+        </Card>
+
+        {shipmentType === 'component_order' && (
+          <Card>
+            <CardHeader><CardTitle>Linked Orders (open only)</CardTitle></CardHeader>
+            <CardContent>
+              {orders.length === 0 ? (
+                <p className="text-sm text-[var(--muted-foreground)]">No open orders found.</p>
+              ) : (
+                <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
                   {orders.map(o => (
-                    <label key={o.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--accent)] cursor-pointer text-sm">
-                      <input type="checkbox" className="rounded" checked={selectedOrderIds.includes(o.id)} onChange={() => toggleOrder(o.id)} />
-                      <span className="font-mono">{o.code}</span>
-                      {o.supplier && <span className="text-[var(--muted-foreground)]">· {(o.supplier as { name: string }).name}</span>}
+                    <label key={o.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--accent)] cursor-pointer">
+                      <input type="checkbox" checked={selectedOrderIds.includes(o.id)} onChange={() => toggleOrder(o.id)}
+                        className="rounded border-[var(--border)]" />
+                      <span className="font-mono text-sm">{o.code}</span>
+                      {o.supplier && <span className="text-sm text-[var(--muted-foreground)]">{o.supplier.name}</span>}
+                      <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-[var(--accent)] capitalize">{o.status.replace(/_/g, ' ')}</span>
                     </label>
                   ))}
                 </div>
-              </>
-            ) : (
-              <>
-                <p className="text-xs text-[var(--muted-foreground)] mb-2">Select the samples being shipped.</p>
-                <div className="space-y-1.5 max-h-48 overflow-y-auto border border-[var(--border)] rounded-md p-2">
-                  {samples.length === 0 && <p className="text-sm text-[var(--muted-foreground)] px-1">No samples found</p>}
-                  {samples.map(s => {
-                    const v = s.product_variants as any
-                    const label = v ? `${v.products?.name ?? ''} · ${v.name}` : s.code
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {shipmentType === 'sample_transfer' && (
+          <Card>
+            <CardHeader><CardTitle>Linked Samples</CardTitle></CardHeader>
+            <CardContent>
+              {samples.length === 0 ? (
+                <p className="text-sm text-[var(--muted-foreground)]">No samples found.</p>
+              ) : (
+                <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+                  {samples.map(s => (
+                    <label key={s.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-[var(--accent)] cursor-pointer">
+                      <input type="checkbox" checked={selectedSampleIds.includes(s.id)} onChange={() => toggleSample(s.id)}
+                        className="rounded border-[var(--border)]" />
+                      <span className="font-mono text-sm">{s.code}</span>
+                      {s.product_variants && (
+                        <span className="text-sm text-[var(--muted-foreground)]">
+                          {s.product_variants.name}
+                          {s.product_variants.products ? ' · ' + s.product_variants.products.name : ''}
+                        </span>
+                      )}
+                      <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-[var(--accent)] capitalize">{s.status.replace(/_/g, ' ')}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {shipmentType === 'material_transfer' && (
+          <Card>
+            <CardHeader><CardTitle>Materials to Transfer</CardTitle></CardHeader>
+            <CardContent>
+              {components.length === 0 ? (
+                <p className="text-sm text-[var(--muted-foreground)]">No components found.</p>
+              ) : (
+                <div className="space-y-1 max-h-72 overflow-y-auto pr-1">
+                  {components.map(c => {
+                    const checked = c.id in materialQtys
+                    const qty = materialQtys[c.id] ?? 1
                     return (
-                      <label key={s.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--accent)] cursor-pointer text-sm">
-                        <input type="checkbox" className="rounded" checked={selectedSampleIds.includes(s.id)} onChange={() => toggleSample(s.id)} />
-                        <span className="font-mono text-xs">{s.code}</span>
-                        <span>{label}</span>
-                        <span className="ml-auto text-xs text-[var(--muted-foreground)]">{s.status}</span>
-                      </label>
+                      <div key={c.id} className={'flex items-center gap-3 p-2 rounded-lg ' + (checked ? 'bg-[var(--accent)]' : 'hover:bg-[var(--accent)]/50')}>
+                        <input type="checkbox" checked={checked} onChange={() => toggleMaterial(c.id)}
+                          className="rounded border-[var(--border)]" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{c.name}</p>
+                          <p className="text-xs font-mono text-[var(--muted-foreground)]">{c.code}</p>
+                        </div>
+                        {checked && (
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button type="button" onClick={() => setMaterialQty(c.id, qty - 1)}
+                              className="w-6 h-6 flex items-center justify-center rounded border border-[var(--border)] hover:bg-white">
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <input type="number" min={1} value={qty}
+                              onChange={e => setMaterialQty(c.id, parseInt(e.target.value) || 1)}
+                              className="w-16 text-center border border-[var(--border)] rounded px-1 py-0.5 text-sm bg-[var(--background)]" />
+                            <button type="button" onClick={() => setMaterialQty(c.id, qty + 1)}
+                              className="w-6 h-6 flex items-center justify-center rounded border border-[var(--border)] hover:bg-white">
+                              <Plus className="w-3 h-3" />
+                            </button>
+                            <span className="text-xs text-[var(--muted-foreground)] w-8">{c.unit}</span>
+                          </div>
+                        )}
+                      </div>
                     )
                   })}
                 </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Shipment details */}
-        <Card>
-          <CardHeader><CardTitle>Shipment Details</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
-            <Input label="Description" value={form.description} onChange={e => set('description', e.target.value)} placeholder="e.g. Magnet batch Jan 2025, sample for testing..." />
-            <Input label="Expected Delivery Date" type="date" value={form.expected_delivery} onChange={e => set('expected_delivery', e.target.value)} />
-          </CardContent>
-        </Card>
-
-        {/* China leg (always shown, labelled by origin if not China) */}
-        <Card>
-          <CardHeader>
-            <CardTitle>{isFromChina ? 'China Leg 🇨🇳' : 'Carrier / Tracking'}</CardTitle>
-            <p className="text-sm text-[var(--muted-foreground)]">
-              {isFromChina ? 'Domestic Chinese courier / freight from supplier' : 'Carrier details for this shipment'}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <Input label="Carrier" value={form.china_carrier} onChange={e => set('china_carrier', e.target.value)} placeholder={isFromChina ? 'e.g. SF Express, EMS' : 'e.g. DHL, PostNord'} />
-              <Input label="Tracking Number" value={form.china_tracking_number} onChange={e => set('china_tracking_number', e.target.value)} />
-            </div>
-            <Input label="Tracking URL" type="url" value={form.china_tracking_url} onChange={e => set('china_tracking_url', e.target.value)} placeholder="https://..." hint="Paste the carrier tracking link" />
-          </CardContent>
-        </Card>
-
-        {/* EU leg — only when origin is China */}
         {isFromChina && (
           <Card>
-            <CardHeader>
-              <CardTitle>EU Leg 🇪🇺</CardTitle>
-              <p className="text-sm text-[var(--muted-foreground)]">International / EU carrier from China to Denmark</p>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <Input label="Carrier" value={form.eu_carrier} onChange={e => set('eu_carrier', e.target.value)} placeholder="e.g. DHL, FedEx, PostNord" />
-                <Input label="Tracking Number" value={form.eu_tracking_number} onChange={e => set('eu_tracking_number', e.target.value)} />
+            <CardHeader><CardTitle>China Leg</CardTitle></CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Carrier</label>
+                <input type="text" value={chinaCarrier} onChange={e => setChinaCarrier(e.target.value)} placeholder="e.g. DHL Express"
+                  className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]" />
               </div>
-              <Input label="Tracking URL" type="url" value={form.eu_tracking_url} onChange={e => set('eu_tracking_url', e.target.value)} placeholder="https://..." hint="Can be filled in later when EU carrier picks up the package" />
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Tracking Number</label>
+                <input type="text" value={chinaTN} onChange={e => setChinaTN(e.target.value)}
+                  className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm font-mono bg-[var(--background)]" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Tracking URL</label>
+                <input type="url" value={chinaTU} onChange={e => setChinaTU(e.target.value)}
+                  className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]" />
+              </div>
             </CardContent>
           </Card>
         )}
 
         <Card>
-          <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
-          <CardContent>
-            <textarea
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm min-h-[80px] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-              value={form.notes} onChange={e => set('notes', e.target.value)}
-              placeholder="Customs declaration value, special handling, etc."
-            />
+          <CardHeader><CardTitle>{isFromChina ? 'EU Leg' : 'Carrier'}</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Carrier</label>
+              <input type="text" value={euCarrier} onChange={e => setEuCarrier(e.target.value)} placeholder="e.g. PostNord, GLS"
+                className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Tracking Number</label>
+              <input type="text" value={euTN} onChange={e => setEuTN(e.target.value)}
+                className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm font-mono bg-[var(--background)]" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Tracking URL</label>
+              <input type="url" value={euTU} onChange={e => setEuTU(e.target.value)}
+                className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]" />
+            </div>
           </CardContent>
         </Card>
 
-        {error && <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>}
-        <div className="flex gap-3">
-          <Button type="submit" loading={loading}>Create Shipment</Button>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex gap-3 justify-end pb-8">
           <Link href="/shipments"><Button type="button" variant="outline">Cancel</Button></Link>
+          <Button type="submit" disabled={submitting}>{submitting ? 'Creating…' : 'Create Shipment'}</Button>
         </div>
+
       </form>
     </div>
   )
