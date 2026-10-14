@@ -183,7 +183,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
               <div className="flex items-start justify-between">
                 <div className="w-full">
                   <div className="flex items-center gap-3 mb-2 flex-wrap">
-                    <Truck className="w-5 h-5 text-indigo-500" />
+                    <Truck className="w-5 h-5 text-[var(--primary)]" />
                     <span className="font-mono text-sm text-[var(--muted-foreground)]">{shipment.code}</span>
                     <Badge className={shipmentStatusClass(shipment.status as never)}>{SHIPMENT_STATUS_LABELS[shipment.status as never]}</Badge>
                     {shipment.shipment_type && (
