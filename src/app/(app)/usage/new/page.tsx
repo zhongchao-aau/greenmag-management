@@ -1,226 +1,354 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import Link from 'next/link'
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react'
 
-interface UsageItem {
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+
+const EQUIPMENT_TYPES = ['equipment']
+const INVENTORY_TYPES = ['raw_material', 'consumable']
+
+const TYPE_LABELS: Record<string, { label: string; prefix: string; color: string }> = {
+  raw_material: { label: 'Raw Material', prefix: 'RM', color: 'bg-blue-100 text-blue-700' },
+  consumable: { label: 'Consumable', prefix: 'CS', color: 'bg-amber-100 text-amber-700' },
+  equipment: { label: 'Lab Equipment', prefix: 'EQ', color: 'bg-violet-100 text-violet-700' },
+}
+
+type ComponentOption = {
+  id: string
+  code: string
+  name: string
+  unit: string
+  component_type: string
+  quantity: number
+}
+
+type UsageItem = {
   component_id: string
   quantity: string
   notes: string
 }
 
-interface ComponentOption {
-  id: string
-  code: string
-  name: string
-  unit: string
-  quantity: number
+function toLocalDate(d: Date) {
+  return d.toLocaleDateString('sv-SE') // yields YYYY-MM-DD in local time
 }
 
 export default function NewUsagePage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const supabase = createClient()
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [components, setComponents] = useState<ComponentOption[]>([])
-  const [form, setForm] = useState({ used_at: new Date().toISOString().split('T')[0], notes: '' })
+  const [form, setForm] = useState({ used_at: toLocalDate(new Date()), notes: '' })
   const [items, setItems] = useState<UsageItem[]>([{ component_id: '', quantity: '', notes: '' }])
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient()
-      const { data: balances } = await supabase
-        .from('inventory_balances')
-        .select('component_id, quantity, component:components(id, code, name, unit)')
-        .gt('quantity', 0)
-        .order('quantity', { ascending: false })
+      const [{ data: comps }, { data: balances }] = await Promise.all([
+        supabase
+          .from('components')
+          .select('id, code, name, unit, component_type')
+          .eq('is_active', true)
+          .order('code'),
+        supabase
+          .from('inventory_balances')
+          .select('component_id, quantity'),
+      ])
 
-      setComponents((balances ?? []).map((b: {
-        component_id: string
-        quantity: number
-        component: { id: string; code: string; name: string; unit: string } | null
-      }) => ({
-        id: b.component?.id ?? b.component_id,
-        code: b.component?.code ?? '',
-        name: b.component?.name ?? '',
-        unit: b.component?.unit ?? '',
-        quantity: b.quantity,
-      })))
+      const balanceMap = new Map(
+        (balances ?? []).map((b: { component_id: string; quantity: number }) => [b.component_id, b.quantity])
+      )
+
+      setComponents(
+        (comps ?? []).map((c: { id: string; code: string; name: string; unit: string; component_type: string | null }) => ({
+          id: c.id,
+          code: c.code,
+          name: c.name,
+          unit: c.unit,
+          component_type: c.component_type ?? 'raw_material',
+          quantity: balanceMap.get(c.id) ?? 0,
+        }))
+      )
+      setLoading(false)
     }
     load()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function getComp(item: UsageItem): ComponentOption | undefined {
+    return components.find(c => c.id === item.component_id)
+  }
+
+  function isEquipment(item: UsageItem): boolean {
+    const c = getComp(item)
+    return c ? EQUIPMENT_TYPES.includes(c.component_type) : false
+  }
 
   function addItem() {
     setItems(prev => [...prev, { component_id: '', quantity: '', notes: '' }])
   }
 
-  function removeItem(index: number) {
-    setItems(prev => prev.filter((_, i) => i !== index))
+  function removeItem(idx: number) {
+    setItems(prev => prev.filter((_, i) => i !== idx))
   }
 
-  function setItem(index: number, field: keyof UsageItem, value: string) {
-    setItems(prev => {
-      const updated = [...prev]
-      updated[index] = { ...updated[index], [field]: value }
-      return updated
-    })
+  function setItem(idx: number, patch: Partial<UsageItem>) {
+    setItems(prev => prev.map((item, i) => (i === idx ? { ...item, ...patch } : item)))
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setError('')
+    setError(null)
 
-    // Validate
-    for (const item of items) {
-      if (!item.component_id) { setError('Please select a component for all rows.'); return }
-      if (!item.quantity || parseFloat(item.quantity) <= 0) { setError('All quantities must be greater than 0.'); return }
-      const comp = components.find(c => c.id === item.component_id)
-      if (comp && parseFloat(item.quantity) > comp.quantity) {
-        setError(`Quantity for "${comp.name}" exceeds available stock (${comp.quantity} ${comp.unit}).`)
+    for (const [i, item] of items.entries()) {
+      if (!item.component_id) {
+        setError(`Row ${i + 1}: please select a component.`)
         return
+      }
+      if (!isEquipment(item)) {
+        const qty = parseFloat(item.quantity)
+        const comp = getComp(item)!
+        if (!qty || qty <= 0) {
+          setError(`Row ${i + 1}: quantity must be greater than 0.`)
+          return
+        }
+        if (qty > comp.quantity) {
+          setError(`Row ${i + 1}: only ${comp.quantity} ${comp.unit} in stock.`)
+          return
+        }
       }
     }
 
-    setLoading(true)
-    const supabase = createClient()
+    setSubmitting(true)
 
-    // Create inventory_transactions for each item (type = 'usage', quantity is negative)
-    const txRows = items.map(item => ({
-      component_id: item.component_id,
-      tx_type: 'usage' as const,
-      quantity: parseFloat(item.quantity),
-      direction: -1 as const,
-      reason: [form.notes, item.notes].filter(Boolean).join(' | ') || null,
-    }))
+    const txRows = items.map(item => {
+      const comp = getComp(item)!
+      const eq = EQUIPMENT_TYPES.includes(comp.component_type)
+      const reason = [form.notes, item.notes].filter(Boolean).join(' | ') || null
+      return eq
+        ? {
+            component_id: item.component_id,
+            tx_type: 'equipment_in_use',
+            quantity: 1,
+            direction: 0,
+            reason,
+          }
+        : {
+            component_id: item.component_id,
+            tx_type: 'usage',
+            quantity: parseFloat(item.quantity),
+            direction: -1,
+            reason,
+          }
+    })
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: txErr } = await supabase.from('inventory_transactions').insert(txRows as any)
-
-    if (txErr) { setError(txErr.message); setLoading(false); return }
+    const { error: txError } = await supabase.from('inventory_transactions').insert(txRows as any)
+    if (txError) {
+      setError(txError.message)
+      setSubmitting(false)
+      return
+    }
 
     router.push('/inventory')
     router.refresh()
   }
 
-  return (
-    <div className="p-6 max-w-3xl mx-auto">
-      <Link href="/inventory" className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] mb-6">
-        <ArrowLeft className="w-4 h-4" />Back to Inventory
-      </Link>
+  if (loading) {
+    return (
+      <div className="max-w-2xl mx-auto p-8 text-gray-400 text-sm">Loading components…</div>
+    )
+  }
 
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold">Record Usage</h1>
-        <p className="text-sm text-[var(--muted-foreground)] mt-0.5">Deduct components used in production or testing from inventory.</p>
+  // Group by type for the select dropdown
+  const TYPE_ORDER = ['raw_material', 'consumable', 'equipment']
+
+  return (
+    <div className="max-w-2xl mx-auto p-6 space-y-6">
+      {/* Breadcrumb */}
+      <div className="flex items-center gap-1.5 text-sm text-gray-400">
+        <Link href="/usage" className="hover:text-gray-600 transition-colors">Usage</Link>
+        <span>/</span>
+        <span className="text-gray-700 font-medium">Record Usage</span>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <Card>
-          <CardHeader><CardTitle>Usage Details</CardTitle></CardHeader>
-          <CardContent className="space-y-4">
+      <h1 className="text-2xl font-semibold text-gray-900">Record Usage</h1>
+
+      <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Usage details card */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Usage Details</h2>
+          <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Date Used</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
               <input
                 type="date"
-                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                 value={form.used_at}
                 onChange={e => setForm(f => ({ ...f, used_at: e.target.value }))}
-                required
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5">General Notes <span className="text-[var(--muted-foreground)] font-normal">(optional)</span></label>
-              <input
-                type="text"
-                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-                placeholder="e.g. Prototype build, Testing batch #4..."
-              />
-            </div>
-          </CardContent>
-        </Card>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={form.notes}
+              onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+              rows={2}
+              placeholder="Purpose, batch, experiment…"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+            />
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Components Used</CardTitle>
-            <p className="text-sm text-[var(--muted-foreground)]">Select components and quantities consumed.</p>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {items.map((item, index) => {
-              const selected = components.find(c => c.id === item.component_id)
-              return (
-                <div key={index} className="border border-[var(--border)] rounded-lg p-3 space-y-3">
-                  <div className="flex items-start gap-2">
-                    <div className="flex-1">
-                      <label className="block text-xs font-medium mb-1 text-[var(--muted-foreground)]">Component</label>
-                      <select
-                        className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                        value={item.component_id}
-                        onChange={e => setItem(index, 'component_id', e.target.value)}
-                        required
-                      >
-                        <option value="">— Select component —</option>
-                        {components.map(c => (
-                          <option key={c.id} value={c.id}>
-                            {c.name} ({c.code}) — {c.quantity} {c.unit} in stock
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    {items.length > 1 && (
-                      <button type="button" onClick={() => removeItem(index)}
-                        className="mt-5 p-1.5 text-[var(--muted-foreground)] hover:text-[var(--destructive)] transition-colors">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+        {/* Component rows */}
+        <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-4">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Components</h2>
+
+          {items.map((item, idx) => {
+            const comp = getComp(item)
+            const eq = comp ? EQUIPMENT_TYPES.includes(comp.component_type) : false
+            const typeInfo = comp ? (TYPE_LABELS[comp.component_type] ?? TYPE_LABELS.raw_material) : null
+
+            return (
+              <div key={idx} className="border border-gray-100 rounded-xl p-4 space-y-3 bg-gray-50">
+                {/* Component selector + remove */}
+                <div className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Component</label>
+                    <select
+                      value={item.component_id}
+                      onChange={e => setItem(idx, { component_id: e.target.value, quantity: '' })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="">Select component…</option>
+                      {TYPE_ORDER.map(type => {
+                        const typeComps = components.filter(c => c.component_type === type)
+                        if (!typeComps.length) return null
+                        const tl = TYPE_LABELS[type]
+                        return (
+                          <optgroup key={type} label={tl?.label ?? type}>
+                            {typeComps.map(c => (
+                              <option key={c.id} value={c.id}>
+                                {c.code} — {c.name}
+                                {INVENTORY_TYPES.includes(type) ? ` (${c.quantity} ${c.unit})` : ''}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )
+                      })}
+                    </select>
+                  </div>
+                  {items.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeItem(idx)}
+                      className="mt-6 text-gray-300 hover:text-red-400 transition-colors text-lg leading-none"
+                      aria-label="Remove row"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                {/* Type badge + stock info */}
+                {comp && (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full ${typeInfo?.color}`}>
+                      {typeInfo?.prefix} · {typeInfo?.label}
+                    </span>
+                    {!eq && (
+                      <span className="text-xs text-gray-500">
+                        In stock: <span className="font-semibold text-gray-700">{comp.quantity} {comp.unit}</span>
+                      </span>
+                    )}
+                    {eq && (
+                      <span className="text-xs font-medium text-violet-600">
+                        ⚡ Will be logged as in use (no quantity deducted)
+                      </span>
                     )}
                   </div>
+                )}
+
+                {/* Quantity + notes for RM/consumable */}
+                {comp && !eq && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium mb-1 text-[var(--muted-foreground)]">
-                        Quantity {selected ? `(${selected.unit}, max ${selected.quantity})` : ''}
+                      <label className="block text-xs font-medium text-gray-500 mb-1">
+                        Quantity ({comp.unit})
                       </label>
                       <input
-                        type="number" min="0.01" step="0.01"
-                        max={selected ? selected.quantity : undefined}
-                        className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                        type="number"
+                        min="0.001"
+                        max={comp.quantity}
+                        step="any"
                         value={item.quantity}
-                        onChange={e => setItem(index, 'quantity', e.target.value)}
-                        required
+                        onChange={e => setItem(idx, { quantity: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                         placeholder="0"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-medium mb-1 text-[var(--muted-foreground)]">Item Notes (optional)</label>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Item Notes</label>
                       <input
                         type="text"
-                        className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                         value={item.notes}
-                        onChange={e => setItem(index, 'notes', e.target.value)}
-                        placeholder="e.g. Failed test, scrap..."
+                        onChange={e => setItem(idx, { notes: e.target.value })}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        placeholder="Optional"
                       />
                     </div>
                   </div>
-                </div>
-              )
-            })}
+                )}
 
-            <button
-              type="button"
-              onClick={addItem}
-              className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors px-2 py-1"
-            >
-              <Plus className="w-4 h-4" />Add another component
-            </button>
-          </CardContent>
-        </Card>
+                {/* Notes only for equipment */}
+                {comp && eq && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Item Notes</label>
+                    <input
+                      type="text"
+                      value={item.notes}
+                      onChange={e => setItem(idx, { notes: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      placeholder="What it's being used for…"
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
 
-        {error && <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>}
+          <button
+            type="button"
+            onClick={addItem}
+            className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+          >
+            + Add another component
+          </button>
+        </div>
 
-        <div className="flex gap-3">
-          <Button type="submit" loading={loading}>Post Usage to Inventory</Button>
-          <Link href="/inventory"><Button type="button" variant="outline">Cancel</Button></Link>
+        {/* Error */}
+        {error && (
+          <div className="rounded-lg bg-red-50 border border-red-200 text-red-700 px-4 py-3 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3 justify-end pt-1">
+          <Link
+            href="/usage"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+          >
+            {submitting ? 'Recording…' : 'Record Usage'}
+          </button>
         </div>
       </form>
     </div>
