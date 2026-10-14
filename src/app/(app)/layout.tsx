@@ -15,7 +15,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     .from('profiles')
     .select('*')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   if (!profile) redirect('/login')
 
