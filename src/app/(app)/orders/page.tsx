@@ -83,7 +83,8 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>PO Code</TableHead>
+              <TableHead className="w-36">ID</TableHead>
+              <TableHead>Description</TableHead>
               <TableHead>Supplier</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Expected Delivery</TableHead>
@@ -93,7 +94,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <TableBody>
             {(orders ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <EmptyState
                     icon={<ShoppingCart className="w-8 h-8 text-[var(--muted-foreground)]" />}
                     title="No purchase orders"
@@ -112,9 +113,10 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{o.code}</TableCell>
                   <TableCell className="font-medium">
                     <Link href={`/orders/${o.id}`} className="hover:text-[var(--primary)]">
-                      {o.supplier?.name ?? '—'}
+                      {o.notes ?? o.code}
                     </Link>
                   </TableCell>
+                  <TableCell className="text-sm">{o.supplier?.name ?? '—'}</TableCell>
                   <TableCell>
                     <Badge className={orderStatusClass(o.status as never)}>{ORDER_STATUS_LABELS[o.status as never]}</Badge>
                   </TableCell>
