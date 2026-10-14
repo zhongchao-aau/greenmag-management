@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
-  FlaskConical, Building2, LogOut, Magnet, ClipboardCheck, Factory, TestTube2,
+  FlaskConical, Building2, LogOut, Magnet, Factory, TestTube2,
   Layers, Wrench, Archive
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
@@ -19,10 +19,6 @@ const userNav = [
   { href: '/inventory', label: 'Inventory', icon: Package },
   { href: '/samples', label: 'Samples', icon: TestTube2 },
   { href: '/usage', label: 'Usage Report', icon: FlaskConical },
-]
-
-const adminOnlyNav = [
-  { href: '/receiving', label: 'Receiving', icon: ClipboardCheck },
 ]
 
 type NavItem = {
@@ -101,28 +97,6 @@ export function Sidebar({ profile }: SidebarProps) {
 
         {isAdmin && (
           <>
-            <div className="pt-4 pb-1 px-3">
-              <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Administration</p>
-            </div>
-            {adminOnlyNav.map(item => {
-              const active = pathname === item.href || pathname.startsWith(item.href + '/')
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                    active
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
-                  )}
-                >
-                  <item.icon className="w-4 h-4 shrink-0" />
-                  {item.label}
-                </Link>
-              )
-            })}
-
             <div className="pt-4 pb-1 px-3">
               <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
             </div>
