@@ -8,14 +8,14 @@ import { Input } from '@/components/ui/input'
 import { RefreshCw } from 'lucide-react'
 
 const TRANSITIONS: Record<string, { label: string; next: string }[]> = {
-  created: [{ label: 'Mark China Dispatched', next: 'dispatched' }],
-  dispatched: [{ label: 'Mark In Transit (Int\'l)', next: 'in_transit' }],
+  created: [{ label: 'Mark China Dispatched', next: 'china_dispatched' }],
+  china_dispatched: [{ label: 'Mark In Transit', next: 'in_transit' }],
   in_transit: [
     { label: 'At Customs', next: 'customs' },
-    { label: 'EU Transit', next: 'out_for_delivery' },
+    { label: 'EU Transit', next: 'eu_transit' },
   ],
-  customs: [{ label: 'Cleared Customs', next: 'out_for_delivery' }],
-  out_for_delivery: [{ label: 'Mark Delivered', next: 'delivered' }],
+  customs: [{ label: 'Cleared Customs', next: 'eu_transit' }],
+  eu_transit: [{ label: 'Mark Delivered', next: 'delivered' }],
 }
 
 export function ShipmentActions({ shipmentId, status, isDelivered }: { shipmentId: string; status: string; isDelivered: boolean }) {
