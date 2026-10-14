@@ -317,7 +317,14 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
         {/* Right sidebar */}
         <div className="space-y-4">
           {isAdmin && (
-            <ShipmentActions shipmentId={id} status={shipment.status} isDelivered={isDelivered} />
+            <>
+              <div className="flex justify-end">
+                <Link href={`/shipments/${id}/edit`} className="text-xs text-[var(--primary)] hover:underline font-medium">
+                  Edit Details
+                </Link>
+              </div>
+              <ShipmentActions shipmentId={id} status={shipment.status} isDelivered={isDelivered} />
+            </>
           )}
 
           <Card>
