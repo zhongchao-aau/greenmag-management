@@ -39,7 +39,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
 
   if (!shipment) notFound()
 
-  const [{ data: items }, { data: events }] = await Promise.all([
+  const [{ data: items }, { data: events }, { data: linkedOrdersData }] = await Promise.all([
     supabase.from('shipment_items')
       .select('id, quantity_shipped, component:components(id, code, name, unit)')
       .eq('shipment_id', id),
@@ -47,7 +47,22 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       .select('id, event_date, location, description, tracking_leg, created_at')
       .eq('shipment_id', id)
       .order('event_date', { ascending: false }),
+    supabase.from('shipment_orders')
+      .select('order:purchase_orders(id, code, supplier:suppliers(name))')
+      .eq('shipment_id', id),
   ])
+
+  // Merge junction-table orders + legacy order_id (deduplicated)
+  type LinkedOrder = { id: string; code: string; supplier: { name: string } | null }
+  const seen = new Set<string>()
+  const linkedOrders: LinkedOrder[] = []
+  ;(linkedOrdersData ?? []).forEach((row: { order: unknown }) => {
+    const o = row.order as LinkedOrder | null
+    if (o && !seen.has(o.id)) { seen.add(o.id); linkedOrders.push(o) }
+  })
+  if (shipment.order && !seen.has(shipment.order.id)) {
+    linkedOrders.push(shipment.order)
+  }
 
   const isDelivered = shipment.status === 'delivered'
   const { data: existingReceipt } = await supabase
@@ -76,14 +91,14 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                     <Badge className={shipmentStatusClass(shipment.status as never)}>{SHIPMENT_STATUS_LABELS[shipment.status as never]}</Badge>
                   </div>
                   <CardTitle>{shipment.description ?? shipment.code}</CardTitle>
-                  {shipment.order && (
-                    <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                      Order{' '}
-                      <Link href={`/orders/${(shipment.order as { id: string; code: string }).id}`} className="text-[var(--primary)] hover:underline">
-                        {(shipment.order as { id: string; code: string }).code}
-                      </Link>
-                      {' · '}{(shipment.order as { supplier: { name: string } | null }).supplier?.name}
-                    </p>
+                  {linkedOrders.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {linkedOrders.map(o => (
+                        <Link key={o.id} href={`/orders/${o.id}`} className="text-xs text-[var(--primary)] bg-[var(--accent)] rounded px-2 py-0.5 hover:underline font-mono">
+                          {o.code}{o.supplier ? ` · ${o.supplier.name}` : ''}
+                        </Link>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>
