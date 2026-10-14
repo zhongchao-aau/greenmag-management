@@ -34,7 +34,7 @@ export function ShipmentActions({ shipmentId, status, isDelivered }: { shipmentI
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Refresh failed')
-      setRefreshResult(data.updated > 0 ? 'Tracking updated â' : 'No changes')
+      setRefreshResult(data.updated > 0 ? 'Tracking updated ✓' : 'No changes')
       router.refresh()
     } catch (err) {
       setRefreshResult(err instanceof Error ? err.message : 'Error')
@@ -55,8 +55,37 @@ export function ShipmentActions({ shipmentId, status, isDelivered }: { shipmentI
     if (next === 'delivered') update.actual_delivery = new Date().toISOString()
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: err } = await (supabase.from('shipments') as any).update(update).eq('id', shipmentId)
-    if (err) setError(err.message)
-    else router.refresh()
+    if (err) { setError(err.message); setLoading(null); return }
+
+    // On delivery: update location of all linked samples and components to shipment destination
+    if (next === 'delivered') {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: ship } = await (supabase.from('shipments') as any)
+        .select('destination').eq('id', shipmentId).single()
+      const dest: string | null = (ship as any)?.destination ?? null
+      if (dest) {
+        const [{ data: sLinks }, { data: cLinks }] = await Promise.all([
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from('shipment_samples') as any).select('sample_id').eq('shipment_id', shipmentId),
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (supabase.from('shipment_items') as any).select('component_id').eq('shipment_id', shipmentId),
+        ])
+        const sampleIds: string[] = (sLinks ?? []).map((r: any) => r.sample_id)
+        const compIds: string[] = [...new Set<string>((cLinks ?? []).map((r: any) => r.component_id as string))]
+        await Promise.all([
+          sampleIds.length > 0
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? (supabase.from('samples') as any).update({ location: dest }).in('id', sampleIds)
+            : Promise.resolve(),
+          compIds.length > 0
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            ? (supabase.from('components') as any).update({ location: dest }).in('id', compIds)
+            : Promise.resolve(),
+        ])
+      }
+    }
+
+    router.refresh()
     setLoading(null)
   }
 
@@ -122,8 +151,8 @@ export function ShipmentActions({ shipmentId, status, isDelivered }: { shipmentI
                 value={event.tracking_leg}
                 onChange={e => setEvent(ev => ({ ...ev, tracking_leg: e.target.value as 'china' | 'eu' }))}
               >
-                <option value="china">ð¨ð³ China</option>
-                <option value="eu">ðªðº EU</option>
+                <option value="china">🇨🇳 China</option>
+                <option value="eu">🇪🇺 EU</option>
               </select>
               <input
                 type="date"
