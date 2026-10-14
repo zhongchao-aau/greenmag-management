@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
@@ -38,6 +39,44 @@ export function SampleActions({ id, currentStatus }: { id: string; currentStatus
   async function transition(next: string) {
     setLoading(true)
     const supabase = createClient()
+
+    // Consume BOM components from inventory when marking as manufactured
+    if (next === 'manufactured') {
+      const { data: sample } = await supabase
+        .from('samples')
+        .select('variant_id, variant_serial')
+        .eq('id', id)
+        .single()
+
+      if (sample?.variant_id) {
+        const { data: mfgConfig } = await supabase
+          .from('manufacturing_configurations')
+          .select('id')
+          .eq('variant_id', sample.variant_id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (mfgConfig) {
+          const { data: bomLines } = await supabase
+            .from('bom_lines')
+            .select('component_id, qty_per_unit')
+            .eq('mfg_config_id', mfgConfig.id)
+
+          if (bomLines && bomLines.length > 0) {
+            await supabase.from('inventory_transactions').insert(
+              bomLines.map((line: { component_id: string; qty_per_unit: number }) => ({
+                component_id: line.component_id,
+                transaction_type: 'usage',
+                quantity: line.qty_per_unit,
+                notes: `Manufacturing sample ${id} (serial ${sample.variant_serial})`,
+              }))
+            )
+          }
+        }
+      }
+    }
+
     await supabase.from('samples').update({ status: next }).eq('id', id)
     router.refresh()
     setLoading(false)
@@ -128,6 +167,9 @@ export function RequestActions({
     }
   }
 
+  // Show "Create Order" link for admin on approved procure requests
+  const showCreateOrder = isAdmin && status === 'approved' && requestType === 'procure'
+
   return (
     <div className="space-y-3">
       {error && <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>}
@@ -155,6 +197,17 @@ export function RequestActions({
           </>
         )}
       </div>
+      {showCreateOrder && (
+        <div className="pt-1 border-t border-[var(--border)]">
+          <p className="text-xs text-[var(--muted-foreground)] mb-2">Request approved — ready to place order:</p>
+          <Link
+            href={`/orders/new?request=${requestId}`}
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-white bg-[var(--primary)] rounded-md px-3 py-1.5 hover:opacity-90 transition-opacity"
+          >
+            Create Purchase Order →
+          </Link>
+        </div>
+      )}
     </div>
   )
 }
