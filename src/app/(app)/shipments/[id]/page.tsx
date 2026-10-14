@@ -9,15 +9,31 @@ import { ShipmentActions } from './shipment-actions'
 export const dynamic = 'force-dynamic'
 
 const LOCATION_LABELS: Record<string, string> = {
-  china:      'China',
-  dk_aalborg: 'Aalborg, DK',
-  dk_hammel:  'Hammel, DK',
-  lv:         'Latvia',
+  china: 'China', dk_aalborg: 'Aalborg, DK', dk_hammel: 'Hammel, DK', lv: 'Latvia',
+  cn_beijing: 'Beijing', cn_chongqing: 'Chongqing', cn_shanghai: 'Shanghai', cn_tianjin: 'Tianjin',
+  cn_anhui: 'Anhui', cn_fujian: 'Fujian', cn_gansu: 'Gansu', cn_guangdong: 'Guangdong',
+  cn_guizhou: 'Guizhou', cn_hainan: 'Hainan', cn_hebei: 'Hebei', cn_heilongjiang: 'Heilongjiang',
+  cn_henan: 'Henan', cn_hubei: 'Hubei', cn_hunan: 'Hunan', cn_jiangsu: 'Jiangsu',
+  cn_jiangxi: 'Jiangxi', cn_jilin: 'Jilin', cn_liaoning: 'Liaoning', cn_qinghai: 'Qinghai',
+  cn_shaanxi: 'Shaanxi', cn_shandong: 'Shandong', cn_shanxi: 'Shanxi', cn_sichuan: 'Sichuan',
+  cn_yunnan: 'Yunnan', cn_zhejiang: 'Zhejiang', cn_guangxi: 'Guangxi',
+  cn_inner_mongolia: 'Inner Mongolia', cn_ningxia: 'Ningxia', cn_tibet: 'Tibet',
+  cn_xinjiang: 'Xinjiang', cn_hongkong: 'Hong Kong', cn_macau: 'Macau',
+  at: 'Austria', be: 'Belgium', cz: 'Czech Republic', dk: 'Denmark', dk_cph: 'Copenhagen, DK',
+  ee: 'Estonia', fi: 'Finland', fr: 'France', de: 'Germany', de_berlin: 'Berlin, DE',
+  de_hamburg: 'Hamburg, DE', de_munich: 'Munich, DE', hu: 'Hungary', ie: 'Ireland',
+  it: 'Italy', jp: 'Japan', kr: 'South Korea', lv_riga: 'Riga, Latvia', lt: 'Lithuania',
+  nl: 'Netherlands', no: 'Norway', pl: 'Poland', pt: 'Portugal', ro: 'Romania',
+  sg: 'Singapore', sk: 'Slovakia', es: 'Spain', se: 'Sweden', ch: 'Switzerland',
+  tw: 'Taiwan', gb: 'United Kingdom', gb_london: 'London, UK', ua: 'Ukraine',
+  us: 'United States', us_ny: 'New York, USA', us_la: 'Los Angeles, USA',
+  ca: 'Canada', au: 'Australia', in_india: 'India',
 }
 
 const SHIPMENT_TYPE_LABELS: Record<string, string> = {
-  component_order: 'Component Order',
-  sample_transfer: 'Sample Transfer',
+  component_order:  'Component Order',
+  sample_transfer:  'Sample Transfer',
+  material_transfer: 'Material Transfer',
 }
 
 export default async function ShipmentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -53,7 +69,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   if (!shipment) notFound()
 
   // Legacy shipments without origin default to China (show both legs)
-  const isFromChina = !shipment.origin || shipment.origin === 'china'
+  const isFromChina = !shipment.origin || shipment.origin === 'china' || shipment.origin.startsWith('cn_')
 
   const [{ data: items }, { data: events }, { data: linkedOrdersData }, { data: linkedSamplesData }] = await Promise.all([
     supabase.from('shipment_items')
