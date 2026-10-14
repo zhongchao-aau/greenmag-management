@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptyState } from '@/components/ui/table'
 import { AlertTriangle, ShoppingCart, Truck, Wrench } from 'lucide-react'
 import { formatQuantity } from '@/lib/utils'
+import { LOCATION_LABELS } from '@/lib/locations'
 export const dynamic = 'force-dynamic'
 
 const FILTER_TABS = [
@@ -46,7 +47,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   // Load ALL components (not just those with inventory) + inventory balances
   const { data: components } = await supabase
     .from('components')
-    .select('id, code, name, unit, low_stock_threshold, component_type, supplier:suppliers(name)')
+    .select('id, code, name, unit, low_stock_threshold, component_type, location, supplier:suppliers(name)')
     .eq('is_active', true)
     .order('code', { ascending: true })
 
@@ -123,7 +124,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const enriched = (components ?? []).map((c: {
     id: string; code: string; name: string; unit: string;
     low_stock_threshold: number | null; component_type: string | null;
-    supplier: { name: string } | null
+    location: string | null; supplier: { name: string } | null
   }) => {
     const qty = balanceMap[c.id] ?? 0
     const onOrder = onOrderMap[c.id] ?? 0
@@ -225,6 +226,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       <TableRow>
                         <TableHead>Component</TableHead>
                         <TableHead>Supplier</TableHead>
+                        <TableHead>Location</TableHead>
                         <TableHead>Unit</TableHead>
                         <TableHead className="text-right">In Stock</TableHead>
                         <TableHead className="text-right">
@@ -259,6 +261,9 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                           </TableCell>
                           <TableCell className="text-sm text-[var(--muted-foreground)]">
                             {(c.supplier as { name: string } | null)?.name ?? '—'}
+                          </TableCell>
+                          <TableCell className="text-sm text-[var(--muted-foreground)]">
+                            {c.location ? (LOCATION_LABELS[c.location] ?? c.location) : '—'}
                           </TableCell>
                           <TableCell className="text-sm">{c.unit}</TableCell>
                           <TableCell className={`text-right text-sm font-medium ${c.isZero ? 'text-red-600' : c.isLow ? 'text-amber-600' : ''}`}>
