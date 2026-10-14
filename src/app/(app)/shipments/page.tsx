@@ -88,13 +88,12 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
               <TableHead>Supplier</TableHead>
               <TableHead>Expected</TableHead>
               <TableHead>Carriers</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
+              </TableRow>
           </TableHeader>
           <TableBody>
             {(shipments ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={6}>
                   <EmptyState
                     title="No shipments"
                     description={isAdmin ? 'Create a shipment to track your incoming goods.' : 'No shipments yet.'}
@@ -128,9 +127,6 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
                   <TableCell className="text-sm">{formatDate(s.expected_delivery)}</TableCell>
                   <TableCell className="text-xs text-[var(--muted-foreground)]">
                     {[s.china_carrier, s.eu_carrier].filter(Boolean).join(' / ') || '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Link href={`/shipments/${s.id}`} className="text-xs text-[var(--primary)] hover:underline">View</Link>
                   </TableCell>
                 </TableRow>
               ))
