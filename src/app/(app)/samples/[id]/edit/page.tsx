@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LocationSelect } from '@/components/ui/location-select'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
@@ -27,6 +28,7 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
     status: '',
     notes: '',
     manufacture_date: '',
+    location: 'dk_aalborg',
   })
 
   useEffect(() => {
@@ -47,6 +49,7 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
           status: s.status ?? 'approved_to_build',
           notes: s.notes ?? '',
           manufacture_date: s.manufacture_date ?? '',
+          location: s.location ?? 'dk_aalborg',
         })
         setLoading(false)
       })
@@ -68,6 +71,7 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
         status: form.status,
         notes: form.notes.trim() || null,
         manufacture_date: form.manufacture_date || null,
+        location: form.location || 'dk_aalborg',
       })
       .eq('id', id)
     if (err) { setError(err.message); setSaving(false); return }
@@ -106,6 +110,16 @@ export default function SampleEditPage({ params }: { params: Promise<{ id: strin
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                 value={form.manufacture_date}
                 onChange={e => set('manufacture_date', e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Current Location</label>
+              <LocationSelect
+                id="location"
+                value={form.location}
+                onChange={v => set('location', v)}
+                placeholder="Select location"
               />
             </div>
 
