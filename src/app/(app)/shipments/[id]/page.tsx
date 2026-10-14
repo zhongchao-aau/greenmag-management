@@ -103,6 +103,26 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     .map((row: { sample: unknown }) => row.sample as LinkedSample)
     .filter(Boolean)
 
+
+  // For component_order shipments with no direct shipment_items, derive from linked orders
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let orderDerivedItems: { id: string; quantity_shipped: number; component: { id: string; code: string; name: string; unit: string } | null }[] = []
+  if (shipment.shipment_type === 'component_order' && !(items ?? []).length) {
+    const orderIds = linkedOrders.map(o => o.id)
+    if (orderIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: oiData } = await (supabase
+        .from('purchase_order_items')
+        .select('id, quantity, component:components(id, code, name, unit)')
+        .in('order_id', orderIds) as any)
+      orderDerivedItems = (oiData ?? []).map((oi: any) => ({
+        id: oi.id,
+        quantity_shipped: oi.quantity as number,
+        component: oi.component as { id: string; code: string; name: string; unit: string } | null,
+      }))
+    }
+  }
+
   const isDelivered = shipment.status === 'delivered'
 
   // Fetch receipt + full inspection for this shipment
@@ -147,7 +167,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     quantity_shipped: number
     component: { id: string; code: string; name: string; unit: string } | null
   }
-  const shipmentItems = (items ?? []) as ShipmentItem[]
+  const shipmentItems = ((items ?? []).length > 0 ? (items ?? []) : orderDerivedItems) as ShipmentItem[]
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
