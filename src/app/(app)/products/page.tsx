@@ -16,7 +16,7 @@ export default async function ProductsPage() {
     .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const { data: products } = await supabase
     .from('products')
