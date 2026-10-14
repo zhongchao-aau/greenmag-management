@@ -23,15 +23,23 @@ const STATUS_COLORS: Record<string, string> = {
   scrapped: 'bg-gray-100 text-gray-500',
 }
 
-const ALL_STATUSES = [
-  { value: 'approved_to_build', label: 'Approved to Build' },
-  { value: 'manufacturing', label: 'Manufacturing' },
-  { value: 'in_test', label: 'In Test' },
-  { value: 'failure_analysis', label: 'Failure Analysis' },
-  { value: 'passed', label: 'Passed' },
-  { value: 'retired', label: 'Retired' },
-  { value: 'scrapped', label: 'Scrapped' },
-]
+const STATUS_DOTS: Record<string, string> = {
+  approved_to_build: 'bg-indigo-500',
+  manufacturing: 'bg-blue-500',
+  in_test: 'bg-yellow-500',
+  failure_analysis: 'bg-orange-500',
+  passed: 'bg-green-500',
+  retired: 'bg-gray-400',
+  scrapped: 'bg-gray-400',
+}
+
+interface HistoryEntry {
+  id: string
+  status: string
+  changed_at: string
+  changed_by: string | null
+  notes: string | null
+}
 
 export default async function SampleDetailPage({
   params,
@@ -41,11 +49,18 @@ export default async function SampleDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
-  const { data: sample, error } = await supabase
-    .from('samples')
-    .select('*, products(id, name, code), product_variants(id, code, name)')
-    .eq('id', id)
-    .single()
+  const [{ data: sample, error }, { data: history }] = await Promise.all([
+    supabase
+      .from('samples')
+      .select('*, products(id, name, code), product_variants(id, code, name)')
+      .eq('id', id)
+      .single(),
+    supabase
+      .from('sample_status_history')
+      .select('id, status, changed_at, changed_by, notes')
+      .eq('sample_id', id)
+      .order('changed_at', { ascending: false }),
+  ])
 
   if (error || !sample) notFound()
 
@@ -53,6 +68,15 @@ export default async function SampleDetailPage({
   const variant = (sample as any).product_variants as { id: string; code: string; name: string } | null
   const statusLabel = STATUS_LABELS[sample.status] ?? sample.status
   const statusColor = STATUS_COLORS[sample.status] ?? 'bg-gray-100 text-gray-600'
+  const historyEntries: HistoryEntry[] = (history ?? []) as HistoryEntry[]
+
+  function formatDateTime(iso: string) {
+    const d = new Date(iso)
+    return d.toLocaleString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit',
+    })
+  }
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -92,30 +116,6 @@ export default async function SampleDetailPage({
         </div>
       </div>
 
-      {/* Status Overview */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Status Overview</h2>
-        <div className="flex flex-wrap gap-2">
-          {ALL_STATUSES.map((s) => {
-            const isCurrent = s.value === sample.status
-            const color = STATUS_COLORS[s.value] ?? 'bg-gray-100 text-gray-600'
-            return (
-              <span
-                key={s.value}
-                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all ${
-                  isCurrent
-                    ? `${color} ring-2 ring-offset-1 ring-current`
-                    : 'bg-gray-50 text-gray-400 border border-gray-200'
-                }`}
-              >
-                {isCurrent && <span className="mr-1.5 text-xs">●</span>}
-                {s.label}
-              </span>
-            )
-          })}
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
@@ -137,10 +137,43 @@ export default async function SampleDetailPage({
             </div>
           )}
 
-          {/* Status Transitions */}
+          {/* Update Status */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-4">Update Status</h2>
             <SampleActions sampleId={id} currentStatus={sample.status} />
+          </div>
+
+          {/* Status History */}
+          <div className="bg-white rounded-lg border border-gray-200 p-6">
+            <h2 className="text-base font-semibold text-gray-900 mb-4">Status History</h2>
+            {historyEntries.length === 0 ? (
+              <p className="text-sm text-gray-400 italic">No history recorded yet.</p>
+            ) : (
+              <ol className="relative border-l border-gray-200 space-y-0">
+                {historyEntries.map((entry, idx) => {
+                  const label = STATUS_LABELS[entry.status] ?? entry.status
+                  const color = STATUS_COLORS[entry.status] ?? 'bg-gray-100 text-gray-600'
+                  const dot = STATUS_DOTS[entry.status] ?? 'bg-gray-400'
+                  return (
+                    <li key={entry.id} className={`ml-4 ${idx < historyEntries.length - 1 ? 'pb-6' : ''}`}>
+                      <span className={`absolute -left-1.5 mt-1.5 w-3 h-3 rounded-full border-2 border-white ${dot}`} />
+                      <div className="flex items-start justify-between gap-2 flex-wrap">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${color}`}>
+                          {label}
+                        </span>
+                        <span className="text-xs text-gray-400 shrink-0">{formatDateTime(entry.changed_at)}</span>
+                      </div>
+                      {entry.changed_by && (
+                        <p className="text-xs text-gray-400 mt-0.5">{entry.changed_by}</p>
+                      )}
+                      {entry.notes && (
+                        <p className="text-sm text-gray-600 mt-1">{entry.notes}</p>
+                      )}
+                    </li>
+                  )
+                })}
+              </ol>
+            )}
           </div>
         </div>
 
