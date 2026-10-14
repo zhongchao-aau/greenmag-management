@@ -45,7 +45,7 @@ export default async function SamplesPage({
 
   let query = supabase
     .from('samples')
-    .select('id, code, name, status, build_objective, product_id, products(name)')
+    .select('id, code, name, status, product_id, variant_id, products(name), product_variants(code, name)')
     .order('created_at', { ascending: false })
 
   if (tab === 'active') {
@@ -126,10 +126,7 @@ export default async function SamplesPage({
                   Sample
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Build Objective
+                  Product / Variant
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
@@ -142,6 +139,7 @@ export default async function SamplesPage({
             <tbody className="bg-white divide-y divide-gray-200">
               {samples.map((sample) => {
                 const product = sample.products as { name: string } | null
+                const variant = sample.product_variants as { code: string; name: string } | null
                 const label = STATUS_LABELS[sample.status] ?? sample.status
                 const color = STATUS_COLORS[sample.status] ?? 'bg-gray-100 text-gray-600'
                 return (
@@ -150,13 +148,13 @@ export default async function SamplesPage({
                       <div className="text-sm font-medium text-gray-900">{sample.name}</div>
                       <div className="text-xs text-gray-400">{sample.code}</div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">
-                      {product?.name ?? '—'}
-                    </td>
                     <td className="px-6 py-4">
-                      <p className="text-sm text-gray-600 max-w-xs truncate">
-                        {(sample as any).build_objective || <span className="text-gray-400 italic">Not specified</span>}
-                      </p>
+                      <div className="text-sm text-gray-700">{product?.name ?? '—'}</div>
+                      {variant && (
+                        <div className="text-xs text-gray-400 mt-0.5">
+                          {variant.code} — {variant.name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
