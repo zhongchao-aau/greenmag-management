@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptyState } from '@/components/ui/table'
 import { AlertTriangle, ShoppingCart, Truck, Wrench } from 'lucide-react'
-import { formatQuantity } from '@/lib/utils'
 import { LOCATION_LABELS } from '@/lib/locations'
 export const dynamic = 'force-dynamic'
 
@@ -250,7 +249,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </TableHeader>
                     <TableBody>
                       {rows.map(c => (
-                        <TableRow key={c.id} className={c.isZero ? 'bg-red-50 dark:bg-red-950/20' : c.isLow ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
+                        <TableRow key={c.id} className={c.isLow ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
                           <TableCell>
                             <div>
                               <Link href={`/components/${c.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
@@ -267,25 +266,25 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                           </TableCell>
                           <TableCell className="text-sm">{c.unit}</TableCell>
                           <TableCell className={`text-right text-sm font-medium ${c.isZero ? 'text-red-600' : c.isLow ? 'text-amber-600' : ''}`}>
-                            {formatQuantity(c.qty)}
+                            {c.qty}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.onOrder > 0
-                              ? <span className="text-blue-600 dark:text-blue-400 font-medium">+{formatQuantity(c.onOrder)}</span>
+                              ? <span className="text-blue-600 dark:text-blue-400 font-medium">+{c.onOrder}</span>
                               : <span className="text-[var(--muted-foreground)]">—</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.inTransit > 0
-                              ? <span className="text-indigo-600 dark:text-indigo-400 font-medium">+{formatQuantity(c.inTransit)}</span>
+                              ? <span className="text-indigo-600 dark:text-indigo-400 font-medium">+{c.inTransit}</span>
                               : <span className="text-[var(--muted-foreground)]">—</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.reserved > 0
-                              ? <span className="text-orange-600 dark:text-orange-400 font-medium">{formatQuantity(c.reserved)}</span>
+                              ? <span className="text-orange-600 dark:text-orange-400 font-medium">{c.reserved}</span>
                               : <span className="text-[var(--muted-foreground)]">—</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm text-[var(--muted-foreground)]">
-                            {c.low_stock_threshold != null ? formatQuantity(c.low_stock_threshold) : '—'}
+                            {c.low_stock_threshold != null ? c.low_stock_threshold : '—'}
                           </TableCell>
                           <TableCell>
                             {c.isZero ? (
