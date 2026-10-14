@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LocationSelect } from '@/components/ui/location-select'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
@@ -22,6 +23,7 @@ export default function NewSamplePage() {
   const [form, setForm] = useState({
     variant_id: '',
     manufacture_date: new Date().toISOString().slice(0, 10),
+    location: 'dk_aalborg',
     notes: '',
   })
 
@@ -49,7 +51,6 @@ export default function NewSamplePage() {
     setSaving(true)
     const supabase = createClient()
 
-    // Count existing samples for this variant to get the next serial number
     const { count } = await supabase
       .from('samples')
       .select('*', { count: 'exact', head: true })
@@ -64,6 +65,7 @@ export default function NewSamplePage() {
         variant_serial,
         status: 'manufactured',
         manufacture_date: form.manufacture_date,
+        location: form.location || 'dk_aalborg',
         notes: form.notes || null,
       })
       .select('id')
@@ -101,14 +103,21 @@ export default function NewSamplePage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1.5">
-                Manufacture Date
-              </label>
+              <label className="block text-sm font-medium mb-1.5">Manufacture Date</label>
               <input
                 type="date"
                 className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                 value={form.manufacture_date}
                 onChange={e => set('manufacture_date', e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Current Location</label>
+              <LocationSelect
+                id="location"
+                value={form.location}
+                onChange={v => set('location', v)}
+                placeholder="Select location"
               />
             </div>
             <div>
