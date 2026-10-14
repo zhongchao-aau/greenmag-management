@@ -46,12 +46,13 @@ export default async function SuppliersPage() {
               <TableHead>Contact</TableHead>
               <TableHead>Lead Time</TableHead>
               <TableHead>Status</TableHead>
-              </TableRow>
+              <TableHead>Website</TableHead>
+            </TableRow>
           </TableHeader>
           <TableBody>
             {(suppliers ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5}>
+                <TableCell colSpan={6}>
                   <EmptyState
                     title="No suppliers yet"
                     description={isAdmin ? 'Add your first supplier to get started.' : 'No suppliers have been added yet.'}
@@ -90,13 +91,11 @@ export default async function SuppliersPage() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
-                      {s.website && (
-                        <a href={s.website} target="_blank" rel="noopener noreferrer" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
-                          <ExternalLink className="w-3.5 h-3.5" />
-                        </a>
-                      )}
-                    </div>
+                    {s.website ? (
+                      <a href={s.website} target="_blank" rel="noopener noreferrer" className="text-[var(--muted-foreground)] hover:text-[var(--primary)]">
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    ) : <span className="text-[var(--muted-foreground)]">—</span>}
                   </TableCell>
                 </TableRow>
               ))
