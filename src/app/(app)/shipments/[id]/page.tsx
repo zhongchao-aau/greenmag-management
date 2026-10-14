@@ -69,7 +69,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
 
   if (!shipment) notFound()
 
-  const isFromChina = Boolean(shipment.origin) && (shipment.origin === 'china' || shipment.origin.startsWith('cn_'))
+  const isFromChina = shipment.origin != null && (shipment.origin === 'china' || shipment.origin.startsWith('cn_'))
 
   const [{ data: items }, { data: events }, { data: linkedOrdersData }, { data: linkedSamplesData }] = await Promise.all([
     supabase.from('shipment_items')
