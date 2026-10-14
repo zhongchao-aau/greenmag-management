@@ -1,73 +1,104 @@
 'use client'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
-import { Button } from '@/components/ui/button'
 
-const TRANSITIONS: Record<string, { label: string; next: string }[]> = {
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
+import { useRouter } from 'next/navigation'
+
+const TRANSITIONS: Record<string, { label: string; next: string; variant?: string }[]> = {
   approved_to_build: [
-    { label: 'Mark Manufactured', next: 'manufactured' },
-    { label: 'Scrap', next: 'scrapped' },
+    { label: 'Start Material Preparation', next: 'material_preparation' },
+    { label: 'Scrap', next: 'scrapped', variant: 'danger' },
+  ],
+  material_preparation: [
+    { label: 'Start Manufacturing', next: 'manufacturing' },
+    { label: 'Scrap', next: 'scrapped', variant: 'danger' },
+  ],
+  manufacturing: [
+    { label: 'Mark as Manufactured', next: 'manufactured' },
+    { label: 'Scrap', next: 'scrapped', variant: 'danger' },
   ],
   manufactured: [
     { label: 'Start Testing', next: 'in_test' },
-    { label: 'Scrap', next: 'scrapped' },
+    { label: 'Retire', next: 'retired', variant: 'warning' },
+    { label: 'Scrap', next: 'scrapped', variant: 'danger' },
   ],
   in_test: [
-    { label: 'Mark Passed', next: 'passed' },
-    { label: 'Mark Failed', next: 'failed' },
+    { label: 'Start Post-Test Analysis', next: 'post_test_analysis' },
+    { label: 'Scrap', next: 'scrapped', variant: 'danger' },
+  ],
+  post_test_analysis: [
+    { label: 'Mark as Passed', next: 'passed' },
+    { label: 'Mark as Failed', next: 'failed', variant: 'danger' },
   ],
   passed: [
     { label: 'Deploy', next: 'deployed' },
-    { label: 'Scrap', next: 'scrapped' },
+    { label: 'Retire', next: 'retired', variant: 'warning' },
   ],
   failed: [
-    { label: 'Scrap', next: 'scrapped' },
+    { label: 'Retire', next: 'retired', variant: 'warning' },
+    { label: 'Scrap', next: 'scrapped', variant: 'danger' },
   ],
-  deployed: [],
+  deployed: [
+    { label: 'Retire', next: 'retired', variant: 'warning' },
+  ],
+  retired: [],
   scrapped: [],
 }
 
 interface SampleActionsProps {
-  id: string
+  sampleId: string
   currentStatus: string
 }
 
-export function SampleActions({ id, currentStatus }: SampleActionsProps) {
-  const router = useRouter()
+export default function SampleActions({ sampleId, currentStatus }: SampleActionsProps) {
   const [loading, setLoading] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const router = useRouter()
+  const supabase = createClient()
 
   const transitions = TRANSITIONS[currentStatus] ?? []
-  if (transitions.length === 0) return <p className="text-sm text-[var(--muted-foreground)]">No further transitions available.</p>
 
-  async function transition(next: string) {
-    setLoading(next)
-    setError('')
-    const supabase = createClient()
-    const update: Record<string, unknown> = { status: next }
-    if (next === 'deployed') update.deployed_at = new Date().toISOString()
-    const { error: err } = await supabase.from('samples').update(update).eq('id', id)
-    if (err) { setError(err.message); setLoading(null); return }
-    router.refresh()
+  if (transitions.length === 0) {
+    return (
+      <p className="text-sm text-gray-500 italic">No further transitions available.</p>
+    )
+  }
+
+  async function handleTransition(nextStatus: string) {
+    setLoading(nextStatus)
+    const { error } = await supabase
+      .from('samples')
+      .update({ status: nextStatus, updated_at: new Date().toISOString() })
+      .eq('id', sampleId)
     setLoading(null)
+    if (error) {
+      alert('Error updating status: ' + error.message)
+    } else {
+      router.refresh()
+    }
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap gap-2">
-        {transitions.map(t => (
-          <Button
+    <div className="flex flex-wrap gap-2">
+      {transitions.map((t) => {
+        const isDanger = t.variant === 'danger'
+        const isWarning = t.variant === 'warning'
+        const baseClass = 'px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50'
+        const colorClass = isDanger
+          ? 'bg-red-600 text-white hover:bg-red-700'
+          : isWarning
+          ? 'bg-amber-500 text-white hover:bg-amber-600'
+          : 'bg-indigo-600 text-white hover:bg-indigo-700'
+        return (
+          <button
             key={t.next}
-            variant={t.next === 'scrapped' || t.next === 'failed' ? 'outline' : 'default'}
-            loading={loading === t.next}
-            onClick={() => transition(t.next)}
+            onClick={() => handleTransition(t.next)}
+            disabled={loading !== null}
+            className={`${baseClass} ${colorClass}`}
           >
-            {t.label}
-          </Button>
-        ))}
-      </div>
-      {error && <p className="text-sm text-[var(--destructive)]">{error}</p>}
+            {loading === t.next ? 'Updating…' : t.label}
+          </button>
+        )
+      })}
     </div>
   )
 }
