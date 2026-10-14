@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, ExternalLink, Truck, Package, ArrowRight, FlaskConical } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Truck, Package, ArrowRight, FlaskConical, ClipboardCheck, CheckCircle, XCircle } from 'lucide-react'
 import { shipmentStatusClass, SHIPMENT_STATUS_LABELS, formatDate, formatQuantity } from '@/lib/utils'
 import { ShipmentActions } from './shipment-actions'
 export const dynamic = 'force-dynamic'
@@ -68,7 +68,6 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
 
   if (!shipment) notFound()
 
-  // Legacy shipments without origin default to China (show both legs)
   const isFromChina = !shipment.origin || shipment.origin === 'china' || shipment.origin.startsWith('cn_')
 
   const [{ data: items }, { data: events }, { data: linkedOrdersData }, { data: linkedSamplesData }] = await Promise.all([
@@ -87,7 +86,6 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       .eq('shipment_id', id),
   ])
 
-  // Merge junction-table orders + legacy order_id (deduplicated)
   type LinkedOrder = { id: string; code: string; supplier: { name: string } | null }
   const seen = new Set<string>()
   const linkedOrders: LinkedOrder[] = []
@@ -105,12 +103,49 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     .filter(Boolean)
 
   const isDelivered = shipment.status === 'delivered'
-  const { data: existingReceipt } = await supabase
+
+  // Fetch receipt + full inspection for this shipment
+  const { data: receiptData } = await supabase
     .from('receipts')
-    .select('id')
+    .select(`
+      id, received_at, notes,
+      receipt_items(id, quantity_received, component:components(id, code, name, unit)),
+      inspections(id, overall_result, inspected_at,
+        items:inspection_items(id, quantity_accepted, quantity_rejected, result, notes,
+          component:components(id, code, name, unit)
+        )
+      )
+    `)
     .eq('shipment_id', id)
     .maybeSingle()
-  const hasReceipt = !!existingReceipt
+
+  type ReceiptFull = {
+    id: string
+    received_at: string
+    notes: string | null
+    receipt_items: { id: string; quantity_received: number; component: { id: string; code: string; name: string; unit: string } | null }[]
+    inspections: {
+      id: string
+      overall_result: string
+      inspected_at: string
+      items: {
+        id: string
+        quantity_accepted: number
+        quantity_rejected: number
+        result: string
+        notes: string | null
+        component: { id: string; code: string; name: string; unit: string } | null
+      }[]
+    }[]
+  }
+  const receipt = receiptData as ReceiptFull | null
+  const inspection = receipt?.inspections?.[0] ?? null
+
+  function resultBadge(result: string) {
+    if (result === 'pass') return <Badge className="badge-approved text-xs">Pass</Badge>
+    if (result === 'fail') return <Badge className="badge-cancelled text-xs">Fail</Badge>
+    return <Badge className="badge-under-review text-xs">Partial</Badge>
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -161,7 +196,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
               <Card>
                 <CardHeader>
                   <CardTitle className="text-sm flex items-center gap-2">
-                    🇨🇳 China Leg
+                    China Leg
                     {shipment.china_status && (
                       <Badge className="badge-under-review text-xs">{shipment.china_status}</Badge>
                     )}
@@ -197,7 +232,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             <Card>
               <CardHeader>
                 <CardTitle className="text-sm flex items-center gap-2">
-                  {isFromChina ? '🇪🇺 EU Leg' : '🚚 Carrier'}
+                  {isFromChina ? 'EU Leg' : 'Carrier'}
                   {shipment.eu_status && (
                     <Badge className="badge-approved text-xs">{shipment.eu_status}</Badge>
                   )}
@@ -253,6 +288,86 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                     </div>
                   ))}
                 </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Receipt & Inspection inline */}
+          {receipt && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2">
+                    <ClipboardCheck className="w-4 h-4 text-indigo-500" />
+                    Receipt &amp; Inspection
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    {inspection && resultBadge(inspection.overall_result)}
+                    <Link href={`/receiving/${receipt.id}`} className="text-xs text-[var(--primary)] hover:underline">
+                      Full details
+                    </Link>
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--muted-foreground)]">Received {formatDate(receipt.received_at)}</p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {inspection && (() => {
+                  const inspItems = inspection.items ?? []
+                  const totalAccepted = inspItems.reduce((s, i) => s + (i.quantity_accepted ?? 0), 0)
+                  const totalRejected = inspItems.reduce((s, i) => s + (i.quantity_rejected ?? 0), 0)
+                  return (
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+                        <p className="text-lg font-bold text-green-700">{formatQuantity(totalAccepted)}</p>
+                        <p className="text-xs text-green-600 mt-0.5">Accepted</p>
+                      </div>
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                        <p className="text-lg font-bold text-red-700">{formatQuantity(totalRejected)}</p>
+                        <p className="text-xs text-red-600 mt-0.5">Rejected</p>
+                      </div>
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
+                        <p className="text-lg font-bold text-gray-900">
+                          {inspItems.filter(i => i.result === 'pass').length}/{inspItems.length}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">Items Passed</p>
+                      </div>
+                    </div>
+                  )
+                })()}
+
+                {inspection && (inspection.items ?? []).length > 0 && (
+                  <div className="space-y-2">
+                    {inspection.items.map(item => (
+                      <div key={item.id} className="flex items-center justify-between py-1.5 border-b border-[var(--border)] last:border-0">
+                        <div>
+                          {item.component ? (
+                            <>
+                              <p className="text-sm font-medium">{item.component.name}</p>
+                              <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
+                            </>
+                          ) : <span className="text-sm text-[var(--muted-foreground)]">—</span>}
+                        </div>
+                        <div className="flex items-center gap-3 text-xs">
+                          {item.result !== 'fail' && (
+                            <span className="flex items-center gap-1 text-green-700">
+                              <CheckCircle className="w-3 h-3" />{formatQuantity(item.quantity_accepted)} {item.component?.unit}
+                            </span>
+                          )}
+                          {(item.result === 'fail' || item.result === 'partial') && (
+                            <span className="flex items-center gap-1 text-red-700">
+                              <XCircle className="w-3 h-3" />{formatQuantity(item.quantity_rejected)} {item.component?.unit}
+                            </span>
+                          )}
+                          {resultBadge(item.result)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {receipt.notes && (
+                  <p className="text-xs text-[var(--muted-foreground)] bg-[var(--secondary)] px-2 py-1.5 rounded">{receipt.notes}</p>
+                )}
               </CardContent>
             </Card>
           )}
@@ -349,25 +464,13 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             </CardContent>
           </Card>
 
-          {isDelivered && isAdmin && !hasReceipt && (
+          {isDelivered && isAdmin && !receipt && (
             <Card className="border-green-200 bg-green-50">
               <CardContent className="pt-4">
                 <p className="text-sm text-green-800 mb-3">Shipment delivered — record receipt and inspection.</p>
                 <Link href={`/receiving/new?shipment=${id}`}>
                   <button className="w-full text-sm bg-green-700 text-white rounded-md px-3 py-2 hover:bg-green-800 transition-colors">
-                    Record Receipt & Inspection →
-                  </button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
-          {isDelivered && existingReceipt && (
-            <Card className="border-blue-200 bg-blue-50">
-              <CardContent className="pt-4">
-                <p className="text-sm text-blue-800 mb-3">✅ Receipt recorded and inventory updated.</p>
-                <Link href={`/receiving/${existingReceipt.id}`}>
-                  <button className="w-full text-sm bg-blue-700 text-white rounded-md px-3 py-2 hover:bg-blue-800 transition-colors">
-                    View Receipt & Inspection →
+                    Record Receipt &amp; Inspection
                   </button>
                 </Link>
               </CardContent>
