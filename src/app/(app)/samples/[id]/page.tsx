@@ -48,14 +48,6 @@ function getLifecycleIndex(status: string) {
   return LIFECYCLE.findIndex(s => s.status === status)
 }
 
-interface BuildTarget {
-  id: string
-  name: string
-  value: string
-  unit: string
-  achieved: string
-}
-
 export default async function SampleDetailPage({
   params,
 }: {
@@ -66,21 +58,22 @@ export default async function SampleDetailPage({
 
   const { data: sample, error } = await supabase
     .from('samples')
-    .select('*, products(id, name, code)')
+    .select('*, products(id, name, code), product_variants(id, code, name)')
     .eq('id', id)
     .single()
 
   if (error || !sample) notFound()
 
   const product = sample.products as { id: string; name: string; code: string } | null
+  const variant = (sample as any).product_variants as { id: string; code: string; name: string } | null
   const statusLabel = STATUS_LABELS[sample.status] ?? sample.status
   const statusColor = STATUS_COLORS[sample.status] ?? 'bg-gray-100 text-gray-600'
   const currentIndex = getLifecycleIndex(sample.status)
   const isTerminal = TERMINAL_STATUSES.includes(sample.status)
-  const buildTargets: BuildTarget[] = Array.isArray((sample as any).build_targets) ? (sample as any).build_targets : []
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
+      {/* Header */}
       <div className="mb-6">
         <Link href="/samples" className="text-sm text-gray-500 hover:text-gray-700">
           ← Back to Samples
@@ -88,19 +81,21 @@ export default async function SampleDetailPage({
         <div className="flex items-start justify-between mt-2">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">{sample.name}</h1>
-            <div className="flex items-center gap-3 mt-1">
+            <div className="flex items-center gap-3 mt-1 flex-wrap">
               <span className="text-sm text-gray-400 font-mono">{sample.code}</span>
               {product && (
                 <span className="text-sm text-gray-500">
-                  Product:{' '}
                   <Link href={`/products/${product.id}`} className="text-indigo-600 hover:underline">
                     {product.name}
                   </Link>
+                  {variant && (
+                    <span className="text-gray-400"> / {variant.code} — {variant.name}</span>
+                  )}
                 </span>
               )}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <span className={`inline-flex px-3 py-1 rounded-full text-sm font-medium ${statusColor}`}>
               {statusLabel}
             </span>
@@ -114,18 +109,19 @@ export default async function SampleDetailPage({
         </div>
       </div>
 
+      {/* Lifecycle Timeline */}
       {!isTerminal && (
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
           <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Lifecycle Progress</h2>
-          <div className="flex items-center">
+          <div className="flex items-center overflow-x-auto">
             {LIFECYCLE.map((stage, idx) => {
               const isDone = idx < currentIndex
               const isCurrent = idx === currentIndex
               return (
-                <div key={stage.status} className="flex items-center flex-1 last:flex-none">
+                <div key={stage.status} className="flex items-center flex-1 last:flex-none min-w-0">
                   <div className="flex flex-col items-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                         isDone
                           ? 'bg-indigo-600 text-white'
                           : isCurrent
@@ -176,58 +172,19 @@ export default async function SampleDetailPage({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-base font-semibold text-gray-900 mb-4">Build Specification</h2>
+          {/* Build Objective */}
+          {(sample as any).build_objective && (
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <h2 className="text-base font-semibold text-gray-900 mb-3">Build Objective</h2>
+              <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
+                {(sample as any).build_objective}
+              </p>
+            </div>
+          )}
 
-            {(sample as any).build_objective ? (
-              <div className="mb-4">
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Objective</h3>
-                <p className="text-sm text-gray-700 leading-relaxed">{(sample as any).build_objective}</p>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400 italic mb-4">No build objective specified.</p>
-            )}
-
-            {buildTargets.length > 0 && (
-              <div>
-                <h3 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-3">Performance Targets</h3>
-                <div className="overflow-hidden rounded-md border border-gray-200">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Parameter</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Target</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Unit</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500">Achieved</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {buildTargets.map((t, i) => (
-                        <tr key={t.id ?? i}>
-                          <td className="px-4 py-2 text-sm font-medium text-gray-800">{t.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{t.value || '—'}</td>
-                          <td className="px-4 py-2 text-sm text-gray-600">{t.unit || '—'}</td>
-                          <td className="px-4 py-2 text-sm">
-                            {t.achieved ? (
-                              <span className="text-gray-700">{t.achieved}</span>
-                            ) : (
-                              <span className="text-gray-400 italic">TBD</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {buildTargets.length === 0 && !((sample as any).build_objective) && (
-              <p className="text-sm text-gray-400 italic">No performance targets specified.</p>
-            )}
-          </div>
-
+          {/* Notes */}
           {sample.notes && (
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <h2 className="text-base font-semibold text-gray-900 mb-3">Notes</h2>
@@ -235,12 +192,14 @@ export default async function SampleDetailPage({
             </div>
           )}
 
+          {/* Status Transitions */}
           <div className="bg-white rounded-lg border border-gray-200 p-6">
             <h2 className="text-base font-semibold text-gray-900 mb-4">Update Status</h2>
             <SampleActions sampleId={id} currentStatus={sample.status} />
           </div>
         </div>
 
+        {/* Sidebar */}
         <div className="space-y-4">
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Details</h3>
@@ -253,28 +212,44 @@ export default async function SampleDetailPage({
                   </span>
                 </dd>
               </div>
-              {sample.location && (
+              {product && (
                 <div>
-                  <dt className="text-xs text-gray-500">Location</dt>
-                  <dd className="text-sm text-gray-800 mt-0.5">{sample.location}</dd>
+                  <dt className="text-xs text-gray-500">Product</dt>
+                  <dd className="text-sm text-gray-800 mt-0.5">
+                    <Link href={`/products/${product.id}`} className="text-indigo-600 hover:underline">
+                      {product.name}
+                    </Link>
+                  </dd>
                 </div>
               )}
-              {sample.manufacture_date && (
+              {variant && (
                 <div>
-                  <dt className="text-xs text-gray-500">Manufacture Date</dt>
-                  <dd className="text-sm text-gray-800 mt-0.5">{new Date(sample.manufacture_date).toLocaleDateString()}</dd>
+                  <dt className="text-xs text-gray-500">Variant</dt>
+                  <dd className="text-sm text-gray-800 mt-0.5">{variant.code} — {variant.name}</dd>
+                </div>
+              )}
+              {(sample as any).location && (
+                <div>
+                  <dt className="text-xs text-gray-500">Location</dt>
+                  <dd className="text-sm text-gray-800 mt-0.5">{(sample as any).location}</dd>
                 </div>
               )}
               {(sample as any).material_date && (
                 <div>
-                  <dt className="text-xs text-gray-500">Material Date</dt>
+                  <dt className="text-xs text-gray-500">Material Ready</dt>
                   <dd className="text-sm text-gray-800 mt-0.5">{new Date((sample as any).material_date).toLocaleDateString()}</dd>
                 </div>
               )}
               {(sample as any).manufacturing_date && (
                 <div>
-                  <dt className="text-xs text-gray-500">Manufacturing Date</dt>
+                  <dt className="text-xs text-gray-500">Manufacturing Start</dt>
                   <dd className="text-sm text-gray-800 mt-0.5">{new Date((sample as any).manufacturing_date).toLocaleDateString()}</dd>
+                </div>
+              )}
+              {sample.manufacture_date && (
+                <div>
+                  <dt className="text-xs text-gray-500">Manufactured</dt>
+                  <dd className="text-sm text-gray-800 mt-0.5">{new Date(sample.manufacture_date).toLocaleDateString()}</dd>
                 </div>
               )}
               {(sample as any).test_date && (
