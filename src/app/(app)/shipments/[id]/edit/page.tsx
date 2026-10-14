@@ -51,7 +51,9 @@ export default function ShipmentEditPage({ params }: { params: Promise<{ id: str
     params.then(async p => {
       setId(p.id)
       const supabase = createClient()
-      const { data: profile } = await supabase.from('profiles').select('role').single()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.replace(`/shipments/${p.id}`); return }
+      const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
       if ((profile as any)?.role !== 'admin') {
         router.replace(`/shipments/${p.id}`)
         return
