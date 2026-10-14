@@ -86,9 +86,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                       {REQUEST_STATUS_LABELS[request.status as never]}
                     </Badge>
                     {request.request_type && (
-                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                      <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-0">
                         {REQUEST_TYPE_LABELS[request.request_type] ?? request.request_type}
-                      </span>
+                      </Badge>
                     )}
                   </div>
                   <CardTitle className="text-lg">{request.purpose ?? 'No description'}</CardTitle>
