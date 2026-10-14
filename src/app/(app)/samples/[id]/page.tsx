@@ -4,6 +4,7 @@ import { ArrowLeft } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { notFound } from 'next/navigation'
 import { SampleActions } from './sample-actions'
+import { LOCATION_LABELS } from '@/lib/locations'
 
 const STATUS_LABELS: Record<string, string> = {
   manufactured: 'Manufactured',
@@ -31,7 +32,7 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
     supabase
       .from('samples')
       .select(`
-        id, code, variant_serial, status, notes, manufacture_date,
+        id, code, variant_serial, status, notes, manufacture_date, location,
         product_variants ( name, code, products ( name ) )
       `)
       .eq('id', id)
@@ -78,6 +79,10 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
             <div>
               <p className="text-[var(--muted-foreground)] text-xs mb-0.5">Manufactured</p>
               <p>{s.manufacture_date ? new Date(s.manufacture_date).toLocaleDateString() : '—'}</p>
+            </div>
+            <div>
+              <p className="text-[var(--muted-foreground)] text-xs mb-0.5">Location</p>
+              <p>{s.location ? (LOCATION_LABELS[s.location] ?? s.location) : '—'}</p>
             </div>
           </div>
 
