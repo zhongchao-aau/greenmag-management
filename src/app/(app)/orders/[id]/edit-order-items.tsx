@@ -8,10 +8,11 @@ import { formatQuantity, formatCurrency } from '@/lib/utils'
 type Component = { id: string; code: string; name: string; unit: string }
 type OrderItem = {
   id: string
-  quantity_ordered: number
-  quantity_received: number | null
+  quantity: number
+  unit: string
   unit_price: number | null
   currency: string | null
+  total_cost: number | null
   notes: string | null
   component: Component | null
 }
@@ -36,13 +37,11 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
     const supabase = createClient()
     async function load() {
       const promises: Promise<{ data: unknown[] | null }>[] = [
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        supabase.from('purchase_order_items')
-          .select('id, quantity_ordered, quantity_received, unit_price, currency, notes, component:components(id, code, name, unit)')
+        supabase.from('order_items')
+          .select('id, quantity, unit, unit_price, currency, total_cost, notes, component:components(id, code, name, unit)')
           .eq('order_id', orderId) as any,
       ]
       if (isAdmin) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         promises.push(supabase.from('components').select('id, code, name, unit').order('name') as any)
       }
       const [itemsResult, componentsResult] = await Promise.all(promises)
@@ -60,8 +59,7 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
     setDeletingId(itemId)
     setError('')
     const supabase = createClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: err } = await (supabase.from('purchase_order_items') as any).delete().eq('id', itemId)
+    const { error: err } = await (supabase.from('order_items') as any).delete().eq('id', itemId)
     if (err) { setError(err.message); setDeletingId(null); return }
     setItems(prev => prev.filter(i => i.id !== itemId))
     setDeletingId(null)
@@ -72,17 +70,19 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
     setSaving(true)
     setError('')
     const supabase = createClient()
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data, error: err } = await (supabase.from('purchase_order_items') as any)
+    const comp = allComponents.find(c => c.id === newComponentId)
+    const { data, error: err } = await (supabase.from('order_items') as any)
       .insert({
         order_id: orderId,
         component_id: newComponentId,
-        quantity_ordered: parseFloat(newQty),
+        item_name: comp?.name ?? 'Unknown',
+        quantity: parseFloat(newQty),
+        unit: comp?.unit ?? 'pcs',
         unit_price: newPrice ? parseFloat(newPrice) : null,
         currency: newPrice ? newCurrency : null,
         notes: newNotes || null,
       })
-      .select('id, quantity_ordered, quantity_received, unit_price, currency, notes, component:components(id, code, name, unit)')
+      .select('id, quantity, unit, unit_price, currency, total_cost, notes, component:components(id, code, name, unit)')
       .single()
     if (err) { setError(err.message); setSaving(false); return }
     setItems(prev => [...prev, data as OrderItem])
@@ -93,7 +93,7 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
     setSaving(false)
   }
 
-  const selectedUnit = allComponents.find(c => c.id === newComponentId)?.unit ?? ''
+  const selectedComp = allComponents.find(c => c.id === newComponentId)
 
   if (loading) {
     return (
@@ -128,8 +128,7 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
               <thead>
                 <tr className="border-b border-[var(--border)]">
                   <th className="text-left pb-2 pr-4 text-xs text-[var(--muted-foreground)] font-medium">Component</th>
-                  <th className="text-right pb-2 pr-4 text-xs text-[var(--muted-foreground)] font-medium whitespace-nowrap">Ordered</th>
-                  <th className="text-right pb-2 pr-4 text-xs text-[var(--muted-foreground)] font-medium whitespace-nowrap">Received</th>
+                  <th className="text-right pb-2 pr-4 text-xs text-[var(--muted-foreground)] font-medium whitespace-nowrap">Quantity</th>
                   {isAdmin && <th className="text-right pb-2 text-xs text-[var(--muted-foreground)] font-medium whitespace-nowrap">Unit Price</th>}
                   {editing && <th className="pb-2 w-8" />}
                 </tr>
@@ -142,12 +141,7 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
                       <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component?.code}</p>
                     </td>
                     <td className="py-2 pr-4 text-right whitespace-nowrap">
-                      {formatQuantity(item.quantity_ordered)}&nbsp;{item.component?.unit}
-                    </td>
-                    <td className="py-2 pr-4 text-right whitespace-nowrap">
-                      {item.quantity_received != null
-                        ? <span className="text-green-700 font-medium">{formatQuantity(item.quantity_received)}&nbsp;{item.component?.unit}</span>
-                        : <span className="text-[var(--muted-foreground)]">—</span>}
+                      {formatQuantity(item.quantity)}&nbsp;{item.unit}
                     </td>
                     {isAdmin && (
                       <td className="py-2 text-right whitespace-nowrap">
@@ -172,6 +166,7 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
             </table>
           </div>
         )}
+
         {editing && (
           <div className="mt-4 border-t border-[var(--border)] pt-4 space-y-2">
             <p className="text-xs font-medium text-[var(--muted-foreground)] mb-2">Add component</p>
@@ -194,7 +189,7 @@ export function EditOrderItems({ orderId, isAdmin }: { orderId: string; isAdmin:
                   placeholder="Qty"
                   className="w-24 border border-[var(--border)] rounded-md px-3 py-1.5 text-sm bg-[var(--background)]"
                 />
-                {selectedUnit && <span className="text-xs text-[var(--muted-foreground)]">{selectedUnit}</span>}
+                {selectedComp && <span className="text-xs text-[var(--muted-foreground)]">{selectedComp.unit}</span>}
               </div>
               <input
                 type="number" min="0" step="any"
