@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Edit, Plus } from 'lucide-react'
+import { ArrowLeft, Edit } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { AddVariantForm } from './add-variant-form'
 import { BomManager } from './bom-manager'
 
@@ -50,28 +52,26 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   const isAdmin = profile?.role === 'admin'
 
-  const statusColors: Record<string, string> = {
-    active: 'bg-green-100 text-green-800',
-    prototype: 'bg-blue-100 text-blue-800',
-    obsolete: 'bg-yellow-100 text-yellow-800',
-    discontinued: 'bg-red-100 text-red-800',
+  const statusClass: Record<string, string> = {
+    active: 'badge-approved',
+    prototype: 'badge-pending',
+    obsolete: 'badge-cancelled',
+    discontinued: 'badge-cancelled',
   }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
       <div className="mb-6">
-        <Link href="/products" className="flex items-center gap-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)] text-sm mb-4 transition-colors">
+        <Link href="/products" className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] mb-4 transition-colors">
           <ArrowLeft className="w-4 h-4" />
           Back to Products
         </Link>
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-2xl font-bold">{product.name}</h1>
-              <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[product.status] ?? 'bg-gray-100 text-gray-800'}`}>
-                {product.status}
-              </span>
+              <h1 className="text-xl font-semibold">{product.name}</h1>
+              <Badge className={statusClass[product.status] ?? 'badge-pending'}>{product.status}</Badge>
             </div>
             <p className="font-mono text-sm text-[var(--muted-foreground)]">{product.code}</p>
             {product.category && (
@@ -92,7 +92,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
       {/* Variants Section */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Variants</h2>
+          <h2 className="text-base font-semibold">Variants</h2>
           <span className="text-sm text-[var(--muted-foreground)]">{variants?.length ?? 0} variant(s)</span>
         </div>
 
@@ -112,31 +112,29 @@ export default async function ProductDetailPage({ params }: PageProps) {
                   <div className="flex items-center gap-3">
                     <span className="font-mono text-sm font-medium text-[var(--primary)]">{variant.code}</span>
                     <span className="font-medium text-sm">{variant.name}</span>
-                    <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusColors[variant.status] ?? 'bg-gray-100 text-gray-800'}`}>
-                      {variant.status}
-                    </span>
+                    <Badge className={statusClass[variant.status] ?? 'badge-pending'}>{variant.status}</Badge>
                   </div>
                 </div>
 
                 {/* BOM for this variant */}
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">Bill of Materials</h3>
+                    <h3 className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wide">Bill of Materials</h3>
                     <span className="text-xs text-[var(--muted-foreground)]">{variant.bill_of_materials?.length ?? 0} component(s)</span>
                   </div>
 
                   {variant.bill_of_materials && variant.bill_of_materials.length > 0 ? (
-                    <table className="w-full text-sm mb-3">
-                      <thead>
-                        <tr className="text-left text-xs text-[var(--muted-foreground)] border-b border-[var(--border)]">
-                          <th className="pb-2 font-medium">Component</th>
-                          <th className="pb-2 font-medium">Code</th>
-                          <th className="pb-2 font-medium">Qty</th>
-                          <th className="pb-2 font-medium">Unit</th>
-                          <th className="pb-2 font-medium">Notes</th>
-                        </tr>
-                      </thead>
-                      <tbody>
+                    <Table className="mb-3">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Component</TableHead>
+                          <TableHead>ID</TableHead>
+                          <TableHead>Qty</TableHead>
+                          <TableHead>Unit</TableHead>
+                          <TableHead>Notes</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
                         {variant.bill_of_materials.map((bom: {
                           id: string
                           quantity: number
@@ -144,16 +142,16 @@ export default async function ProductDetailPage({ params }: PageProps) {
                           notes: string | null
                           component: { id: string; code: string; name: string; unit: string | null } | null
                         }) => (
-                          <tr key={bom.id} className="border-b border-[var(--border)] last:border-0">
-                            <td className="py-2 font-medium">{bom.component?.name ?? '—'}</td>
-                            <td className="py-2 font-mono text-xs text-[var(--muted-foreground)]">{bom.component?.code ?? '—'}</td>
-                            <td className="py-2">{bom.quantity}</td>
-                            <td className="py-2 text-[var(--muted-foreground)]">{bom.unit ?? bom.component?.unit ?? '—'}</td>
-                            <td className="py-2 text-[var(--muted-foreground)]">{bom.notes ?? '—'}</td>
-                          </tr>
+                          <TableRow key={bom.id}>
+                            <TableCell className="font-medium">{bom.component?.name ?? '—'}</TableCell>
+                            <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{bom.component?.code ?? '—'}</TableCell>
+                            <TableCell>{bom.quantity}</TableCell>
+                            <TableCell className="text-[var(--muted-foreground)]">{bom.unit ?? bom.component?.unit ?? '—'}</TableCell>
+                            <TableCell className="text-[var(--muted-foreground)]">{bom.notes ?? '—'}</TableCell>
+                          </TableRow>
                         ))}
-                      </tbody>
-                    </table>
+                      </TableBody>
+                    </Table>
                   ) : (
                     <p className="text-sm text-[var(--muted-foreground)] mb-3">No components in BOM yet.</p>
                   )}
