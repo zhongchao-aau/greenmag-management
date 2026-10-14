@@ -3,10 +3,10 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, ShoppingCart } from 'lucide-react'
-import { orderStatusClass, ORDER_STATUS_LABELS, formatDate, formatRelative, formatQuantity, formatCurrency } from '@/lib/utils'
+import { orderStatusClass, ORDER_STATUS_LABELS, formatDate, formatRelative } from '@/lib/utils'
 import { OrderActions } from './order-actions'
+import { EditOrderItems } from './edit-order-items'
 export const dynamic = 'force-dynamic'
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -30,16 +30,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     .single()
 
   if (!order) notFound()
-
-  // Items: admin sees cost, user sees order_items_public view
-  const itemsView = isAdmin ? 'order_items' : 'order_items_public'
-  const { data: items } = await supabase
-    .from(itemsView)
-    .select(isAdmin
-      ? 'id, quantity_ordered, quantity_received, unit_price, currency, total_cost, notes, component:components(id, code, name, unit)'
-      : 'id, quantity_ordered, quantity_received, notes, component:components(id, code, name, unit)'
-    )
-    .eq('order_id', id)
 
   const { data: shipments } = await supabase
     .from('shipments')
@@ -95,63 +85,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </CardHeader>
           </Card>
 
-          {/* Items table */}
-          <Card>
-            <CardHeader><CardTitle>Order Items</CardTitle></CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Component</TableHead>
-                    <TableHead>Ordered</TableHead>
-                    <TableHead>Received</TableHead>
-                    {isAdmin && <TableHead>Unit Price</TableHead>}
-                    {isAdmin && <TableHead>Total</TableHead>}
-                    <TableHead>Notes</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {(items ?? []).map((item: {
-                    id: string; quantity_ordered: number; quantity_received: number | null;
-                    unit_price?: number | null; currency?: string | null; total_cost?: number | null;
-                    notes: string | null; component: { id: string; code: string; name: string; unit: string } | null
-                  }) => (
-                    <TableRow key={item.id}>
-                      <TableCell>
-                        {item.component ? (
-                          <div>
-                            <Link href={`/components/${item.component.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
-                              {item.component.name}
-                            </Link>
-                            <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
-                          </div>
-                        ) : '—'}
-                      </TableCell>
-                      <TableCell className="text-sm font-medium">
-                        {formatQuantity(item.quantity_ordered)} {item.component?.unit}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {item.quantity_received != null
-                          ? <span className="text-green-700 font-medium">{formatQuantity(item.quantity_received)} {item.component?.unit}</span>
-                          : <span className="text-[var(--muted-foreground)]">—</span>}
-                      </TableCell>
-                      {isAdmin && (
-                        <TableCell className="text-sm">
-                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : '—'}
-                        </TableCell>
-                      )}
-                      {isAdmin && (
-                        <TableCell className="text-sm font-medium">
-                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : '—'}
-                        </TableCell>
-                      )}
-                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <EditOrderItems orderId={id} isAdmin={isAdmin} />
 
           {/* Linked shipments */}
           {(shipments ?? []).length > 0 && (
