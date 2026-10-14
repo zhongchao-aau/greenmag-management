@@ -80,7 +80,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       .eq('shipment_id', id)
       .order('event_date', { ascending: false }),
     supabase.from('shipment_orders')
-      .select('order:purchase_orders(id, code, supplier:suppliers(name))')
+      .select('order_id')
       .eq('shipment_id', id),
     supabase.from('shipment_samples')
       .select('sample:samples(id, code, status, product_variants(name, products(name)))')
@@ -88,14 +88,20 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
   ])
 
   type LinkedOrder = { id: string; code: string; supplier: { name: string } | null }
-  const seen = new Set<string>()
-  const linkedOrders: LinkedOrder[] = []
-  ;(linkedOrdersData ?? []).forEach((row: { order: unknown }) => {
-    const o = row.order as LinkedOrder | null
-    if (o && !seen.has(o.id)) { seen.add(o.id); linkedOrders.push(o) }
+  const linkedOrderIdSet = new Set<string>()
+  ;(linkedOrdersData ?? []).forEach((row: { order_id: string }) => {
+    if (row.order_id) linkedOrderIdSet.add(row.order_id)
   })
-  if (shipment.order && !seen.has(shipment.order.id)) {
-    linkedOrders.push(shipment.order)
+  if (shipment.order?.id) linkedOrderIdSet.add(shipment.order.id)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let linkedOrders: LinkedOrder[] = []
+  if (linkedOrderIdSet.size > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: ordersData } = await (supabase
+      .from('purchase_orders')
+      .select('id, code, supplier:suppliers(name)')
+      .in('id', [...linkedOrderIdSet]) as any)
+    linkedOrders = (ordersData ?? []) as LinkedOrder[]
   }
 
   type LinkedSample = { id: string; code: string; status: string; product_variants: { name: string; products: { name: string } | null } | null }
