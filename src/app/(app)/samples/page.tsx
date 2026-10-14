@@ -1,5 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import { Plus, FlaskConical } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptyState } from '@/components/ui/table'
+export const dynamic = 'force-dynamic'
 
 const STATUS_LABELS: Record<string, string> = {
   approved_to_build: 'Approved to Build',
@@ -11,19 +16,26 @@ const STATUS_LABELS: Record<string, string> = {
   scrapped: 'Scrapped',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  approved_to_build: 'bg-indigo-100 text-indigo-800',
-  manufacturing: 'bg-blue-100 text-blue-800',
-  in_test: 'bg-yellow-100 text-yellow-800',
-  failure_analysis: 'bg-orange-100 text-orange-800',
-  passed: 'bg-green-100 text-green-800',
-  retired: 'bg-gray-100 text-gray-600',
-  scrapped: 'bg-gray-100 text-gray-500',
+const STATUS_CLASS: Record<string, string> = {
+  approved_to_build: 'badge-pending',
+  manufacturing: 'badge-pending',
+  in_test: 'badge-pending',
+  failure_analysis: 'badge-cancelled',
+  passed: 'badge-approved',
+  retired: 'badge-cancelled',
+  scrapped: 'badge-cancelled',
 }
 
 const ACTIVE_STATUSES = ['approved_to_build', 'manufacturing']
 const TESTING_STATUSES = ['in_test', 'failure_analysis']
 const COMPLETE_STATUSES = ['passed', 'retired', 'scrapped']
+
+const STATUS_TABS = [
+  { value: '', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'testing', label: 'Testing' },
+  { value: 'complete', label: 'Complete' },
+]
 
 export default async function SamplesPage({
   searchParams,
@@ -31,7 +43,7 @@ export default async function SamplesPage({
   searchParams: Promise<{ tab?: string }>
 }) {
   const params = await searchParams
-  const tab = params.tab ?? 'all'
+  const tab = params.tab ?? ''
 
   const supabase = await createClient()
 
@@ -48,119 +60,89 @@ export default async function SamplesPage({
     query = query.in('status', COMPLETE_STATUSES)
   }
 
-  const { data: samples, error } = await query
-
-  const tabs = [
-    { key: 'all', label: 'All' },
-    { key: 'active', label: 'Active' },
-    { key: 'testing', label: 'Testing' },
-    { key: 'complete', label: 'Complete' },
-  ]
+  const { data: samples } = await query
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Samples</h1>
-          <p className="text-sm text-gray-500 mt-1">Track build samples through their lifecycle</p>
+          <h1 className="text-xl font-semibold">Samples</h1>
+          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{(samples ?? []).length} samples</p>
         </div>
-        <Link
-          href="/samples/new"
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 transition-colors"
-        >
-          + New Sample
+        <Link href="/samples/new">
+          <Button size="sm"><Plus className="w-4 h-4 mr-1.5" />New Sample</Button>
         </Link>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="border-b border-gray-200 mb-6">
-        <nav className="flex space-x-8">
-          {tabs.map((t) => (
-            <Link
-              key={t.key}
-              href={`/samples?tab=${t.key}`}
-              className={`py-3 text-sm font-medium border-b-2 transition-colors ${
-                tab === t.key
-                  ? 'border-indigo-600 text-indigo-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {t.label}
-            </Link>
-          ))}
-        </nav>
+      <div className="flex gap-1 mb-4 border-b border-[var(--border)]">
+        {STATUS_TABS.map(t => (
+          <Link
+            key={t.value}
+            href={t.value ? `/samples?tab=${t.value}` : '/samples'}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              tab === t.value
+                ? 'border-[var(--primary)] text-[var(--primary)]'
+                : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+            }`}
+          >
+            {t.label}
+          </Link>
+        ))}
       </div>
 
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 text-red-700 text-sm">
-          Error loading samples: {error.message}
-        </div>
-      )}
-
-      {!samples || samples.length === 0 ? (
-        <div className="text-center py-16">
-          <div className="text-4xl mb-4">🔬</div>
-          <p className="text-gray-500 text-lg">No samples found</p>
-          <p className="text-gray-400 text-sm mt-1">Create a new sample to get started</p>
-          <Link
-            href="/samples/new"
-            className="mt-4 inline-block bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700"
-          >
-            Create Sample
-          </Link>
-        </div>
-      ) : (
-        <div className="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Sample
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Product / Variant
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {samples.map((sample) => {
-                const product = sample.products as { name: string } | null
-                const variant = sample.product_variants as { code: string; name: string } | null
-                const label = STATUS_LABELS[sample.status] ?? sample.status
-                const color = STATUS_COLORS[sample.status] ?? 'bg-gray-100 text-gray-600'
+      <div className="card overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-36">ID</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Product / Variant</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {(samples ?? []).length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={4}>
+                  <EmptyState
+                    icon={<FlaskConical className="w-8 h-8 text-[var(--muted-foreground)]" />}
+                    title="No samples found"
+                    description="Create a new sample to get started."
+                    action={<Link href="/samples/new"><Button size="sm"><Plus className="w-4 h-4 mr-1.5" />New Sample</Button></Link>}
+                  />
+                </TableCell>
+              </TableRow>
+            ) : (
+              (samples ?? []).map((sample: {
+                id: string; code: string; name: string; status: string;
+                product_id: string | null; variant_id: string | null;
+                products: { name: string } | null;
+                product_variants: { code: string; name: string } | null;
+              }) => {
+                const product = sample.products
+                const variant = sample.product_variants
                 return (
-                  <tr key={sample.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <Link href={`/samples/${sample.id}`} className="group">
-                        <div className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
-                          {sample.name}
-                        </div>
-                        <div className="text-xs text-gray-400">{sample.code}</div>
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="text-sm text-gray-700">{product?.name ?? '—'}</div>
-                      {variant && (
-                        <div className="text-xs text-gray-400 mt-0.5">
-                          {variant.code} — {variant.name}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
-                        {label}
-                      </span>
-                    </td>
-                  </tr>
+                  <TableRow key={sample.id}>
+                    <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{sample.code}</TableCell>
+                    <TableCell className="font-medium">
+                      <Link href={`/samples/${sample.id}`} className="hover:text-[var(--primary)]">{sample.name}</Link>
+                    </TableCell>
+                    <TableCell className="text-sm text-[var(--muted-foreground)]">
+                      {product?.name ?? '—'}
+                      {variant && <span className="block text-xs">{variant.code} — {variant.name}</span>}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={STATUS_CLASS[sample.status] ?? 'badge-pending'}>
+                        {STATUS_LABELS[sample.status] ?? sample.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
                 )
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              })
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   )
 }
