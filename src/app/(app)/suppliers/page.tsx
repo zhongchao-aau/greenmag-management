@@ -46,13 +46,12 @@ export default async function SuppliersPage() {
               <TableHead>Contact</TableHead>
               <TableHead>Lead Time</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
+              </TableRow>
           </TableHeader>
           <TableBody>
             {(suppliers ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={5}>
                   <EmptyState
                     title="No suppliers yet"
                     description={isAdmin ? 'Add your first supplier to get started.' : 'No suppliers have been added yet.'}
@@ -97,7 +96,6 @@ export default async function SuppliersPage() {
                           <ExternalLink className="w-3.5 h-3.5" />
                         </a>
                       )}
-                      <Link href={`/suppliers/${s.id}`} className="text-xs text-[var(--primary)] hover:underline">View</Link>
                     </div>
                   </TableCell>
                 </TableRow>
