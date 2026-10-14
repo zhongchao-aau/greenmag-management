@@ -5,253 +5,259 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
-interface BuildTarget {
-  id: string
-  name: string
-  value: string
-  unit: string
-  achieved: string
-}
+const STATUSES = [
+  { value: 'approved_to_build', label: 'Approved to Build' },
+  { value: 'material_preparation', label: 'Material Preparation' },
+  { value: 'manufacturing', label: 'Manufacturing' },
+  { value: 'manufactured', label: 'Manufactured' },
+  { value: 'in_test', label: 'In Test' },
+  { value: 'post_test_analysis', label: 'Post-Test Analysis' },
+  { value: 'passed', label: 'Passed' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'deployed', label: 'Deployed' },
+  { value: 'retired', label: 'Retired' },
+  { value: 'scrapped', label: 'Scrapped' },
+]
 
-interface Product {
-  id: string
-  name: string
-  code: string
-}
+interface Product { id: string; name: string; code: string }
+interface Variant { id: string; name: string; code: string }
 
 export default function NewSamplePage() {
+  const [products, setProducts] = useState<Product[]>([])
+  const [variants, setVariants] = useState<Variant[]>([])
+  const [productId, setProductId] = useState('')
+  const [variantId, setVariantId] = useState('')
+  const [name, setName] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [status, setStatus] = useState('approved_to_build')
+  const [location, setLocation] = useState('')
+  const [buildObjective, setBuildObjective] = useState('')
+  const [notes, setNotes] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
   const router = useRouter()
   const supabase = createClient()
 
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({
-    name: '',
-    product_id: '',
-    build_objective: '',
-    notes: '',
-    location: '',
-  })
-  const [buildTargets, setBuildTargets] = useState<BuildTarget[]>([])
-
   useEffect(() => {
-    supabase.from('products').select('id, name, code').order('name').then(({ data }) => {
-      if (data) setProducts(data)
-    })
+    supabase
+      .from('products')
+      .select('id, name, code')
+      .order('name')
+      .then(({ data }) => { if (data) setProducts(data) })
   }, [])
 
-  function addTarget() {
-    setBuildTargets(prev => [
-      ...prev,
-      { id: crypto.randomUUID(), name: '', value: '', unit: '', achieved: '' },
-    ])
-  }
-
-  function removeTarget(id: string) {
-    setBuildTargets(prev => prev.filter(t => t.id !== id))
-  }
-
-  function updateTarget(id: string, field: keyof BuildTarget, value: string) {
-    setBuildTargets(prev =>
-      prev.map(t => t.id === id ? { ...t, [field]: value } : t)
-    )
-  }
+  useEffect(() => {
+    if (!productId) {
+      setVariants([])
+      setVariantId('')
+      return
+    }
+    supabase
+      .from('product_variants')
+      .select('id, name, code')
+      .eq('product_id', productId)
+      .order('name')
+      .then(({ data }) => {
+        if (data) setVariants(data)
+        setVariantId('')
+      })
+  }, [productId])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!form.name.trim()) return
+    if (!name.trim()) { setError('Sample name is required'); return }
+    if (!productId) { setError('Product is required'); return }
+    if (quantity < 1 || quantity > 50) { setError('Quantity must be between 1 and 50'); return }
+
     setLoading(true)
+    setError('')
 
-    const { error } = await supabase.from('samples').insert({
-      name: form.name.trim(),
-      product_id: form.product_id || null,
-      build_objective: form.build_objective.trim() || null,
-      notes: form.notes.trim() || null,
-      location: form.location.trim() || null,
-      status: 'approved_to_build',
-      build_targets: buildTargets.filter(t => t.name.trim()),
-    })
+    try {
+      const { data: latest } = await supabase
+        .from('samples')
+        .select('code')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
 
-    setLoading(false)
-    if (error) {
-      alert('Error creating sample: ' + error.message)
-    } else {
+      let nextNum = 1
+      if (latest?.code) {
+        const match = latest.code.match(/(\d+)$/)
+        if (match) nextNum = parseInt(match[1]) + 1
+      }
+
+      const rows = Array.from({ length: quantity }, (_, i) => ({
+        name: quantity > 1 ? `${name.trim()} #${i + 1}` : name.trim(),
+        code: `GM-SA-${String(nextNum + i).padStart(5, '0')}`,
+        product_id: productId,
+        variant_id: variantId || null,
+        status,
+        location: location.trim() || null,
+        build_objective: buildObjective.trim() || null,
+        notes: notes.trim() || null,
+        build_targets: [],
+      }))
+
+      const { error: insertError } = await supabase.from('samples').insert(rows)
+      if (insertError) throw insertError
+
       router.push('/samples')
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message || 'Failed to create sample(s)')
+      setLoading(false)
     }
   }
 
+  const inputClass = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+  const labelClass = 'block text-sm font-medium text-gray-700 mb-1'
+
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div className="p-6 max-w-2xl mx-auto">
       <div className="mb-6">
-        <Link href="/samples" className="text-sm text-gray-500 hover:text-gray-700">
-          ← Back to Samples
-        </Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">New Sample</h1>
-        <p className="text-sm text-gray-500 mt-1">New samples start in <strong>Approved to Build</strong> status</p>
+        <Link href="/samples" className="text-sm text-gray-500 hover:text-gray-700">← Back to Samples</Link>
+        <h1 className="text-2xl font-bold text-gray-900 mt-2">Register New Sample</h1>
+        <p className="text-sm text-gray-500 mt-1">Create one or more build samples to track through the lifecycle</p>
       </div>
 
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 text-red-700 text-sm">
+          {error}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Basic Info */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">Basic Information</h2>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Sample Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. Prototype A - High Flux Core"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Product</label>
-            <select
-              value={form.product_id}
-              onChange={e => setForm(f => ({ ...f, product_id: e.target.value }))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <option value="">— Select product —</option>
-              {products.map(p => (
-                <option key={p.id} value={p.id}>{p.name} ({p.code})</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-            <input
-              type="text"
-              value={form.location}
-              onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="e.g. Lab A, Shelf 3"
-            />
+        {/* Product & Variant */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Product</h2>
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className={labelClass}>Product *</label>
+              <select
+                value={productId}
+                onChange={e => setProductId(e.target.value)}
+                className={inputClass}
+                required
+              >
+                <option value="">Select a product…</option>
+                {products.map(p => (
+                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>Variant</label>
+              <select
+                value={variantId}
+                onChange={e => setVariantId(e.target.value)}
+                className={inputClass}
+                disabled={!productId || variants.length === 0}
+              >
+                <option value="">
+                  {!productId ? 'Select a product first' : variants.length === 0 ? 'No variants available' : 'Select a variant (optional)'}
+                </option>
+                {variants.map(v => (
+                  <option key={v.id} value={v.id}>{v.code} — {v.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Build Specification */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">Build Specification</h2>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Build Objective</label>
-            <textarea
-              value={form.build_objective}
-              onChange={e => setForm(f => ({ ...f, build_objective: e.target.value }))}
-              rows={3}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              placeholder="Describe the purpose and goals of this build sample…"
-            />
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className="block text-sm font-medium text-gray-700">Build Targets</label>
-              <button
-                type="button"
-                onClick={addTarget}
-                className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-              >
-                + Add Target
-              </button>
+        {/* Sample Info */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Sample Info</h2>
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className={labelClass}>Sample Name *</label>
+              <input
+                type="text"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                placeholder={quantity > 1 ? 'e.g. Proto-A  →  Proto-A #1, Proto-A #2…' : 'e.g. Proto-A'}
+                className={inputClass}
+                required
+              />
+              {quantity > 1 && name && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Will create: "{name} #1" through "{name} #{quantity}"
+                </p>
+              )}
             </div>
 
-            {buildTargets.length === 0 ? (
-              <p className="text-sm text-gray-400 italic py-2">No targets defined. Click Add Target to specify performance targets.</p>
-            ) : (
-              <div className="space-y-2">
-                <div className="grid grid-cols-12 gap-2 text-xs font-medium text-gray-500 px-1">
-                  <div className="col-span-4">Parameter</div>
-                  <div className="col-span-3">Target Value</div>
-                  <div className="col-span-2">Unit</div>
-                  <div className="col-span-2">Achieved</div>
-                  <div className="col-span-1"></div>
-                </div>
-                {buildTargets.map(t => (
-                  <div key={t.id} className="grid grid-cols-12 gap-2 items-center">
-                    <div className="col-span-4">
-                      <input
-                        type="text"
-                        value={t.name}
-                        onChange={e => updateTarget(t.id, 'name', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="e.g. Flux density"
-                      />
-                    </div>
-                    <div className="col-span-3">
-                      <input
-                        type="text"
-                        value={t.value}
-                        onChange={e => updateTarget(t.id, 'value', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="e.g. 1.5"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <input
-                        type="text"
-                        value={t.unit}
-                        onChange={e => updateTarget(t.id, 'unit', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="T"
-                      />
-                    </div>
-                    <div className="col-span-2">
-                      <input
-                        type="text"
-                        value={t.achieved}
-                        onChange={e => updateTarget(t.id, 'achieved', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        placeholder="TBD"
-                      />
-                    </div>
-                    <div className="col-span-1 text-center">
-                      <button
-                        type="button"
-                        onClick={() => removeTarget(t.id)}
-                        className="text-red-400 hover:text-red-600 text-lg leading-none"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  </div>
-                ))}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={labelClass}>Quantity</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={50}
+                  value={quantity}
+                  onChange={e => setQuantity(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
+                  className={inputClass}
+                />
+                <p className="text-xs text-gray-400 mt-1">Register multiple identical samples at once</p>
               </div>
-            )}
+              <div>
+                <label className={labelClass}>Status</label>
+                <select
+                  value={status}
+                  onChange={e => setStatus(e.target.value)}
+                  className={inputClass}
+                >
+                  {STATUSES.map(s => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Location</label>
+              <input
+                type="text"
+                value={location}
+                onChange={e => setLocation(e.target.value)}
+                placeholder="e.g. Lab A, Storage Room 3"
+                className={inputClass}
+              />
+            </div>
           </div>
         </div>
 
-        {/* Notes */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+        {/* Build Objective */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Build Objective</h2>
           <textarea
-            value={form.notes}
-            onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
-            rows={4}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            placeholder="Any additional notes about this sample…"
+            value={buildObjective}
+            onChange={e => setBuildObjective(e.target.value)}
+            rows={3}
+            placeholder="What is this sample being built for? e.g. Validate winding process at 300A…"
+            className={inputClass}
           />
         </div>
 
-        <div className="flex justify-end gap-3">
-          <Link
-            href="/samples"
-            className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Cancel
-          </Link>
+        {/* Notes */}
+        <div className="bg-white border border-gray-200 rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Notes</h2>
+          <textarea
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
+            rows={3}
+            placeholder="Any additional notes or context…"
+            className={inputClass}
+          />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between">
+          <Link href="/samples" className="text-sm text-gray-500 hover:text-gray-700">Cancel</Link>
           <button
             type="submit"
-            disabled={loading || !form.name.trim()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
+            disabled={loading}
+            className="bg-indigo-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Creating…' : 'Create Sample'}
+            {loading ? 'Creating…' : quantity > 1 ? `Create ${quantity} Samples` : 'Create Sample'}
           </button>
         </div>
       </form>
