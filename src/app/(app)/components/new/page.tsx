@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { LocationSelect } from '@/components/ui/location-select'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
@@ -16,7 +17,7 @@ export default function NewComponentPage() {
   const [form, setForm] = useState({
     name: '', description: '', unit: 'pcs', supplier_id: '',
     manufacturer_part_number: '', low_stock_threshold: '', notes: '',
-    component_type: 'raw_material'
+    component_type: 'raw_material', location: 'dk_aalborg'
   })
 
   useEffect(() => {
@@ -46,6 +47,7 @@ export default function NewComponentPage() {
       low_stock_threshold: form.low_stock_threshold ? parseFloat(form.low_stock_threshold) : null,
       notes: form.notes || null,
       component_type: form.component_type,
+      location: form.location || 'dk_aalborg',
       is_active: true,
     })
     if (error) { setError(error.message); setLoading(false); return }
@@ -129,6 +131,15 @@ export default function NewComponentPage() {
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <p className="text-xs text-[var(--muted-foreground)] mt-1">Can be set later once supplier is confirmed.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Current Location</label>
+              <LocationSelect
+                id="location"
+                value={form.location}
+                onChange={v => set('location', v)}
+                placeholder="Select location"
+              />
             </div>
             <Input
               label="Low Stock Threshold"
