@@ -3,35 +3,27 @@ import Link from 'next/link'
 
 const STATUS_LABELS: Record<string, string> = {
   approved_to_build: 'Approved to Build',
-  material_preparation: 'Material Preparation',
   manufacturing: 'Manufacturing',
-  manufactured: 'Manufactured',
   in_test: 'In Test',
-  post_test_analysis: 'Post-Test Analysis',
+  failure_analysis: 'Failure Analysis',
   passed: 'Passed',
-  failed: 'Failed',
-  deployed: 'Deployed',
   retired: 'Retired',
   scrapped: 'Scrapped',
 }
 
 const STATUS_COLORS: Record<string, string> = {
   approved_to_build: 'bg-indigo-100 text-indigo-800',
-  material_preparation: 'bg-purple-100 text-purple-800',
   manufacturing: 'bg-blue-100 text-blue-800',
-  manufactured: 'bg-cyan-100 text-cyan-800',
   in_test: 'bg-yellow-100 text-yellow-800',
-  post_test_analysis: 'bg-orange-100 text-orange-800',
+  failure_analysis: 'bg-orange-100 text-orange-800',
   passed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  deployed: 'bg-emerald-100 text-emerald-800',
   retired: 'bg-gray-100 text-gray-600',
   scrapped: 'bg-gray-100 text-gray-500',
 }
 
-const ACTIVE_STATUSES = ['approved_to_build', 'material_preparation', 'manufacturing', 'manufactured']
-const TESTING_STATUSES = ['in_test', 'post_test_analysis']
-const COMPLETE_STATUSES = ['passed', 'failed', 'deployed', 'retired', 'scrapped']
+const ACTIVE_STATUSES = ['approved_to_build', 'manufacturing']
+const TESTING_STATUSES = ['in_test', 'failure_analysis']
+const COMPLETE_STATUSES = ['passed', 'retired', 'scrapped']
 
 export default async function SamplesPage({
   searchParams,
@@ -131,9 +123,6 @@ export default async function SamplesPage({
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
@@ -145,8 +134,12 @@ export default async function SamplesPage({
                 return (
                   <tr key={sample.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4">
-                      <div className="text-sm font-medium text-gray-900">{sample.name}</div>
-                      <div className="text-xs text-gray-400">{sample.code}</div>
+                      <Link href={`/samples/${sample.id}`} className="group">
+                        <div className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 transition-colors">
+                          {sample.name}
+                        </div>
+                        <div className="text-xs text-gray-400">{sample.code}</div>
+                      </Link>
                     </td>
                     <td className="px-6 py-4">
                       <div className="text-sm text-gray-700">{product?.name ?? '—'}</div>
@@ -160,14 +153,6 @@ export default async function SamplesPage({
                       <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${color}`}>
                         {label}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <Link
-                        href={`/samples/${sample.id}`}
-                        className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                      >
-                        View →
-                      </Link>
                     </td>
                   </tr>
                 )
