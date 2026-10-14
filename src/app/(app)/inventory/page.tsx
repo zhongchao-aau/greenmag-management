@@ -40,7 +40,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (!profile) redirect('/login')
 
   // Load ALL components (not just those with inventory) + inventory balances
@@ -309,4 +309,4 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       )}
     </div>
   )
-}
+   }
