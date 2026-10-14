@@ -88,7 +88,7 @@ export default function NewSamplePage() {
 
       const rows = Array.from({ length: quantity }, (_, i) => ({
         name: quantity > 1 ? `${name.trim()} #${i + 1}` : name.trim(),
-        code: `GM-SA-${String(nextNum + i).padStart(5, '0')}`,
+        code: `GM-SMP-${String(nextNum + i).padStart(5, '0')}`,
         product_id: productId,
         variant_id: variantId || null,
         status,
