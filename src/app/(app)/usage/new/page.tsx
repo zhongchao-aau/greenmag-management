@@ -124,21 +124,19 @@ export default function NewUsagePage() {
     const txRows = items.map(item => {
       const comp = getComp(item)!
       const eq = EQUIPMENT_TYPES.includes(comp.component_type)
-      const reason = [form.notes, item.notes].filter(Boolean).join(' | ') || null
+      const notes = [form.notes, item.notes].filter(Boolean).join(' | ') || null
       return eq
         ? {
             component_id: item.component_id,
-            tx_type: 'equipment_in_use',
-            quantity: 1,
-            direction: 0,
-            reason,
+            transaction_type: 'equipment_in_use',
+            quantity: 0, // no inventory impact
+            notes,
           }
         : {
             component_id: item.component_id,
-            tx_type: 'usage',
-            quantity: parseFloat(item.quantity),
-            direction: -1,
-            reason,
+            transaction_type: 'usage',
+            quantity: -parseFloat(item.quantity), // negative = deduction (trigger adds NEW.quantity to balance)
+            notes,
           }
     })
 
