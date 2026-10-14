@@ -13,7 +13,7 @@ export default async function ReceivingPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
   if (!profile) redirect('/login')
   const isAdmin = profile.role === 'admin'
   if (!isAdmin) redirect('/dashboard')
