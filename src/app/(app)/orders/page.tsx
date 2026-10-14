@@ -88,7 +88,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               <TableHead>Status</TableHead>
               <TableHead>Expected Delivery</TableHead>
               <TableHead>Updated</TableHead>
-              </TableRow>
+            </TableRow>
           </TableHeader>
           <TableBody>
             {(orders ?? []).length === 0 ? (
@@ -109,9 +109,11 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 supplier: { name: string } | null;
               }) => (
                 <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs font-medium"><Link href={`/orders/${o.id}`} className="hover:text-[var(--primary)]">{o.code}</Link></TableCell>
+                  <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{o.code}</TableCell>
                   <TableCell className="font-medium">
-                    {o.supplier?.name ?? <span className="text-[var(--muted-foreground)]">â</span>}
+                    <Link href={`/orders/${o.id}`} className="hover:text-[var(--primary)]">
+                      {o.supplier?.name ?? '—'}
+                    </Link>
                   </TableCell>
                   <TableCell>
                     <Badge className={orderStatusClass(o.status as never)}>{ORDER_STATUS_LABELS[o.status as never]}</Badge>
