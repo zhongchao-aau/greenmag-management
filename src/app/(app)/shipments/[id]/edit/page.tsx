@@ -186,7 +186,8 @@ export default function ShipmentEditPage({ params }: { params: Promise<{ id: str
       ])
     }
 
-    if (shipmentType === 'material_transfer') {
+    // Save shipment_items for all shipment types
+    {
       const selectedCids = Object.keys(materialQtys)
       const toRemoveCids = Object.keys(originalItems).filter(cid => !selectedCids.includes(cid))
       const ops: Promise<unknown>[] = []
@@ -316,9 +317,8 @@ export default function ShipmentEditPage({ params }: { params: Promise<{ id: str
           </Card>
         )}
 
-        {shipmentType === 'material_transfer' && (
-          <Card>
-            <CardHeader><CardTitle>Materials</CardTitle></CardHeader>
+        <Card>
+            <CardHeader><CardTitle>Components / Materials</CardTitle></CardHeader>
             <CardContent>
               {allComponents.length === 0 ? (
                 <p className="text-sm text-[var(--muted-foreground)]">No components found.</p>
@@ -357,8 +357,7 @@ export default function ShipmentEditPage({ params }: { params: Promise<{ id: str
                 </div>
               )}
             </CardContent>
-          </Card>
-        )}
+        </Card>
 
         {isFromChina && (
           <Card>
