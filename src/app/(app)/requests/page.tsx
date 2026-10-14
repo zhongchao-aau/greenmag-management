@@ -86,13 +86,12 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
               <TableHead>Purpose</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Updated</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
+              </TableRow>
           </TableHeader>
           <TableBody>
             {(requests ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 6 : 5}>
+                <TableCell colSpan={isAdmin ? 5 : 4}>
                   <EmptyState
                     icon={<FileText className="w-8 h-8 text-[var(--muted-foreground)]" />}
                     title="No requests found"
@@ -122,9 +121,6 @@ export default async function RequestsPage({ searchParams }: { searchParams: Pro
                     </Badge>
                   </TableCell>
                   <TableCell className="text-sm text-[var(--muted-foreground)]">{formatRelative(req.updated_at)}</TableCell>
-                  <TableCell>
-                    <Link href={`/requests/${req.id}`} className="text-xs text-[var(--primary)] hover:underline">View</Link>
-                  </TableCell>
                 </TableRow>
               ))
             )}
