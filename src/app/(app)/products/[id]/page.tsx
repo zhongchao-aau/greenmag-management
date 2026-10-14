@@ -1,7 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Edit, Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { AddVariantForm } from './add-variant-form'
 import { BomManager } from './bom-manager'
 
@@ -80,6 +81,11 @@ export default async function ProductDetailPage({ params }: PageProps) {
               <p className="text-sm mt-2 text-[var(--foreground)]">{product.description}</p>
             )}
           </div>
+          {isAdmin && (
+            <Link href={`/products/${id}/edit`}>
+              <Button size="sm" variant="outline"><Edit className="w-3.5 h-3.5 mr-1.5" />Edit</Button>
+            </Link>
+          )}
         </div>
       </div>
 
