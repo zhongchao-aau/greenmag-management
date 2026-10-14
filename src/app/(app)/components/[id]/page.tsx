@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, Edit, Package, AlertTriangle } from 'lucide-react'
 import { formatDate, formatRelative, formatQuantity } from '@/lib/utils'
+import { LOCATION_LABELS } from '@/lib/locations'
 export const dynamic = 'force-dynamic'
 
 export default async function ComponentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -41,6 +42,9 @@ export default async function ComponentDetailPage({ params }: { params: Promise<
 
   const qty = balance?.quantity ?? 0
   const isLow = component.low_stock_threshold != null && qty < component.low_stock_threshold
+  const locationLabel = (component as any).location
+    ? (LOCATION_LABELS[(component as any).location] ?? (component as any).location)
+    : null
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -193,6 +197,12 @@ export default async function ComponentDetailPage({ params }: { params: Promise<
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Min Stock</span>
                   <span>{component.low_stock_threshold} {component.unit}</span>
+                </div>
+              )}
+              {locationLabel && (
+                <div className="flex justify-between">
+                  <span className="text-[var(--muted-foreground)]">Location</span>
+                  <span>{locationLabel}</span>
                 </div>
               )}
             </CardContent>
