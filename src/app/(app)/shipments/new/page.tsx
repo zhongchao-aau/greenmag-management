@@ -11,12 +11,12 @@ import { ArrowLeft } from 'lucide-react'
 export default function NewShipmentPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const orderId = searchParams.get('order')
+  const preOrderId = searchParams.get('order')
   const [loading, setLoading] = useState(false)
   const [orders, setOrders] = useState<{ id: string; code: string; supplier: { name: string } | null }[]>([])
+  const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(preOrderId ? [preOrderId] : [])
   const [error, setError] = useState('')
   const [form, setForm] = useState({
-    order_id: orderId ?? '',
     description: '',
     expected_delivery: '',
     // China leg
@@ -45,6 +45,12 @@ export default function NewShipmentPage() {
 
   function set(field: string, value: string) { setForm(f => ({ ...f, [field]: value })) }
 
+  function toggleOrder(id: string) {
+    setSelectedOrderIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    )
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -53,7 +59,7 @@ export default function NewShipmentPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: shipment, error: err } = await (supabase.from('shipments') as any)
       .insert({
-        order_id: form.order_id || null,
+        order_id: selectedOrderIds[0] || null,   // keep for backwards compat
         description: form.description || null,
         expected_delivery: form.expected_delivery || null,
         china_carrier: form.china_carrier || null,
@@ -69,6 +75,14 @@ export default function NewShipmentPage() {
       .single()
 
     if (err || !shipment) { setError(err?.message ?? 'Failed to create shipment'); setLoading(false); return }
+
+    // Link all selected orders via junction table
+    if (selectedOrderIds.length > 0) {
+      await supabase.from('shipment_orders').insert(
+        selectedOrderIds.map(order_id => ({ shipment_id: shipment.id, order_id }))
+      )
+    }
+
     router.push(`/shipments/${shipment.id}`)
     router.refresh()
   }
@@ -88,18 +102,25 @@ export default function NewShipmentPage() {
           <CardHeader><CardTitle>Shipment Details</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1.5">Linked Purchase Order</label>
-              <select
-                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
-                value={form.order_id} onChange={e => set('order_id', e.target.value)}
-              >
-                <option value="">— No linked order —</option>
+              <label className="block text-sm font-medium mb-1.5">Linked Purchase Orders</label>
+              <p className="text-xs text-[var(--muted-foreground)] mb-2">Select one or more orders included in this shipment.</p>
+              <div className="space-y-1.5 max-h-48 overflow-y-auto border border-[var(--border)] rounded-md p-2">
+                {orders.length === 0 && (
+                  <p className="text-sm text-[var(--muted-foreground)] px-1">No open orders</p>
+                )}
                 {orders.map(o => (
-                  <option key={o.id} value={o.id}>
-                    {o.code}{o.supplier ? ` · ${(o.supplier as { name: string }).name}` : ''}
-                  </option>
+                  <label key={o.id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-[var(--accent)] cursor-pointer text-sm">
+                    <input
+                      type="checkbox"
+                      className="rounded"
+                      checked={selectedOrderIds.includes(o.id)}
+                      onChange={() => toggleOrder(o.id)}
+                    />
+                    <span className="font-mono">{o.code}</span>
+                    {o.supplier && <span className="text-[var(--muted-foreground)]">· {(o.supplier as { name: string }).name}</span>}
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
             <Input
               label="Description"
