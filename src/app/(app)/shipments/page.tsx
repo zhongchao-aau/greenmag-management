@@ -45,6 +45,30 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
   const { data: shipments } = await query.limit(50)
   const activeStatus = status ?? ''
 
+  // Fetch all linked orders from the join table for display
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const shipmentIds = (shipments ?? []).map((s: any) => s.id as string)
+  const shipmentOrderMap: Record<string, string[]> = {}
+  if (shipmentIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: soRows } = await (supabase.from('shipment_orders').select('shipment_id, order_id').in('shipment_id', shipmentIds) as any)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const allOrderIds = [...new Set((soRows ?? []).map((r: any) => r.order_id as string))]
+    if (allOrderIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: poRows } = await (supabase.from('purchase_orders').select('id, code').in('id', allOrderIds) as any)
+      const codeById: Record<string, string> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(poRows ?? []).forEach((p: any) => { codeById[p.id] = p.code })
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(soRows ?? []).forEach((r: any) => {
+        if (!shipmentOrderMap[r.shipment_id]) shipmentOrderMap[r.shipment_id] = []
+        const code = codeById[r.order_id]
+        if (code && !shipmentOrderMap[r.shipment_id].includes(code)) shipmentOrderMap[r.shipment_id].push(code)
+      })
+    }
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -113,9 +137,12 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
                     <Link href={`/shipments/${s.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
                       {s.description ?? s.code}
                     </Link>
-                    {s.order && (
-                      <p className="text-xs text-[var(--muted-foreground)]">{s.order.code}</p>
-                    )}
+                    {(() => {
+                      const codes = shipmentOrderMap[s.id]
+                      if (codes && codes.length > 0) return <p className="text-xs text-[var(--muted-foreground)]">{codes.join(' · ')}</p>
+                      if (s.order) return <p className="text-xs text-[var(--muted-foreground)]">{s.order.code}</p>
+                      return null
+                    })()}
                   </TableCell>
                   <TableCell>
                     <Badge className={shipmentStatusClass(s.status as never)}>{SHIPMENT_STATUS_LABELS[s.status as never]}</Badge>
