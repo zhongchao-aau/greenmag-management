@@ -5,17 +5,33 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
+// Full order lifecycle:
+// approved → ordered → confirmed → (partially_shipped|shipped) → (partially_received) → received → closed
 const TRANSITIONS: Record<string, { label: string; next: string; style?: string }[]> = {
-  draft: [{ label: 'Send to Supplier', next: 'sent', style: 'primary' }],
-  sent: [
-    { label: 'Mark as Confirmed', next: 'confirmed' },
-    { label: 'Back to Draft', next: 'draft' },
+  approved: [
+    { label: 'Issue Purchase Order', next: 'ordered', style: 'primary' },
+  ],
+  ordered: [
+    { label: 'Supplier Confirmed', next: 'confirmed', style: 'primary' },
+    { label: 'Back to Approved', next: 'approved' },
   ],
   confirmed: [
-    { label: 'Mark as Received', next: 'received' },
+    { label: 'Mark as Shipped', next: 'shipped', style: 'primary' },
+    { label: 'Partially Shipped', next: 'partially_shipped' },
+  ],
+  partially_shipped: [
+    { label: 'All Goods Shipped', next: 'shipped', style: 'primary' },
+    { label: 'Mark Partially Received', next: 'partially_received' },
+  ],
+  shipped: [
+    { label: 'Mark as Received', next: 'received', style: 'primary' },
+    { label: 'Partially Received', next: 'partially_received' },
+  ],
+  partially_received: [
+    { label: 'All Goods Received', next: 'received', style: 'primary' },
   ],
   received: [
-    { label: 'Close Order', next: 'closed' },
+    { label: 'Close Order', next: 'closed', style: 'primary' },
   ],
 }
 
@@ -31,7 +47,10 @@ export function OrderActions({ orderId, status }: { orderId: string; status: str
     setLoading(next)
     setError('')
     const supabase = createClient()
-    const { error: err } = await supabase.from('purchase_orders').update({ status: next }).eq('id', orderId)
+    const { error: err } = await supabase
+      .from('purchase_orders')
+      .update({ status: next })
+      .eq('id', orderId)
     if (err) setError(err.message)
     else router.refresh()
     setLoading(null)
