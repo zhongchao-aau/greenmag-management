@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 
 const TRANSITIONS: Record<string, { label: string; next: string }[]> = {
+  approved_to_build: [
+    { label: 'Mark Manufactured', next: 'manufactured' },
+    { label: 'Scrap', next: 'scrapped' },
+  ],
   manufactured: [
     { label: 'Start Testing', next: 'in_test' },
     { label: 'Scrap', next: 'scrapped' },
