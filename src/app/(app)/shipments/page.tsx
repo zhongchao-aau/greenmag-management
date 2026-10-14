@@ -36,7 +36,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
     .select(`
       id, code, description, status, expected_delivery, actual_delivery,
       china_carrier, eu_carrier,
-      order:purchase_orders(code, supplier:suppliers(name))
+      order:purchase_orders(code)
     `)
     .order('created_at', { ascending: false })
 
@@ -82,18 +82,17 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
+              <TableHead className="w-36">ID</TableHead>
               <TableHead>Description</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Supplier</TableHead>
               <TableHead>Expected</TableHead>
               <TableHead>Carriers</TableHead>
-              </TableRow>
+            </TableRow>
           </TableHeader>
           <TableBody>
             {(shipments ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={5}>
                   <EmptyState
                     title="No shipments"
                     description={isAdmin ? 'Create a shipment to track your incoming goods.' : 'No shipments yet.'}
@@ -106,7 +105,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
                 id: string; code: string; description: string | null; status: string;
                 expected_delivery: string | null; actual_delivery: string | null;
                 china_carrier: string | null; eu_carrier: string | null;
-                order: { code: string; supplier: { name: string } | null } | null
+                order: { code: string } | null
               }) => (
                 <TableRow key={s.id}>
                   <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{s.code}</TableCell>
@@ -114,15 +113,12 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
                     <Link href={`/shipments/${s.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
                       {s.description ?? s.code}
                     </Link>
-                    {(s.order) && (
+                    {s.order && (
                       <p className="text-xs text-[var(--muted-foreground)]">{s.order.code}</p>
                     )}
                   </TableCell>
                   <TableCell>
                     <Badge className={shipmentStatusClass(s.status as never)}>{SHIPMENT_STATUS_LABELS[s.status as never]}</Badge>
-                  </TableCell>
-                  <TableCell className="text-sm">
-                    {(s.order as { supplier: { name: string } | null } | null)?.supplier?.name ?? '—'}
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(s.expected_delivery)}</TableCell>
                   <TableCell className="text-xs text-[var(--muted-foreground)]">
