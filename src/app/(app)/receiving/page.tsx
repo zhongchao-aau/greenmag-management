@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptyState } from '@/components/ui/table'
 import { formatDate } from '@/lib/utils'
+import { Plus } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 export const dynamic = 'force-dynamic'
 
 export default async function ReceivingPage() {
@@ -48,32 +50,29 @@ export default async function ReceivingPage() {
           <h1 className="text-xl font-semibold">Receiving &amp; Inspections</h1>
           <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{allReceipts.length} receipts</p>
         </div>
-        <Link
-          href="/receiving/new"
-          className="inline-flex items-center gap-1.5 px-4 py-2 bg-[var(--primary)] text-white text-sm font-medium rounded-lg hover:opacity-90 transition-opacity"
-        >
-          + Record Receipt
+        <Link href="/receiving/new">
+          <Button size="sm"><Plus className="w-4 h-4 mr-1.5" />Record Receipt</Button>
         </Link>
       </div>
 
       {/* Stats summary */}
       {allReceipts.length > 0 && (
         <div className="grid grid-cols-4 gap-4 mb-6">
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-2xl font-bold text-gray-900">{allReceipts.length}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Total Receipts</p>
+          <div className="card p-4">
+            <p className="text-2xl font-bold">{allReceipts.length}</p>
+            <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Total Receipts</p>
           </div>
-          <div className="bg-green-50 border border-green-200 rounded-xl p-4">
-            <p className="text-2xl font-bold text-green-700">{passCount}</p>
-            <p className="text-xs text-green-600 mt-0.5">Passed</p>
+          <div className="card p-4 border-green-200 bg-green-50 dark:bg-green-950/20">
+            <p className="text-2xl font-bold text-green-700 dark:text-green-400">{passCount}</p>
+            <p className="text-xs text-green-600 dark:text-green-500 mt-0.5">Passed</p>
           </div>
-          <div className="bg-red-50 border border-red-200 rounded-xl p-4">
-            <p className="text-2xl font-bold text-red-700">{failCount}</p>
-            <p className="text-xs text-red-600 mt-0.5">Failed</p>
+          <div className="card p-4 border-red-200 bg-red-50 dark:bg-red-950/20">
+            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{failCount}</p>
+            <p className="text-xs text-red-600 dark:text-red-500 mt-0.5">Failed</p>
           </div>
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            <p className="text-2xl font-bold text-gray-900">{passRate !== null ? `${passRate}%` : '—'}</p>
-            <p className="text-xs text-gray-500 mt-0.5">Pass Rate</p>
+          <div className="card p-4">
+            <p className="text-2xl font-bold">{passRate !== null ? `${passRate}%` : '—'}</p>
+            <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Pass Rate</p>
           </div>
         </div>
       )}
