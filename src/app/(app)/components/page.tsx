@@ -81,13 +81,12 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
               <TableHead>Unit</TableHead>
               <TableHead>In Stock</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
+              </TableRow>
           </TableHeader>
           <TableBody>
             {(components ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={6}>
                   <EmptyState
                     icon={<Package className="w-8 h-8 text-[var(--muted-foreground)]" />}
                     title={`No ${pageTitle.toLowerCase()} yet`}
@@ -126,9 +125,6 @@ export default async function ComponentsPage({ searchParams }: { searchParams: P
                       <Badge className={c.is_active ? 'badge-approved' : 'badge-cancelled'}>
                         {c.is_active ? 'Active' : 'Inactive'}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Link href={`/components/${c.id}`} className="text-xs text-[var(--primary)] hover:underline">View</Link>
                     </TableCell>
                   </TableRow>
                 )
