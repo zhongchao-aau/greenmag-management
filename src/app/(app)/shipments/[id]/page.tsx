@@ -3,9 +3,10 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, ExternalLink, Truck, Package, ArrowRight, FlaskConical, ClipboardCheck, CheckCircle, XCircle } from 'lucide-react'
+import { ArrowLeft, ExternalLink, Truck, Package, ArrowRight, FlaskConical } from 'lucide-react'
 import { shipmentStatusClass, SHIPMENT_STATUS_LABELS, formatDate, formatQuantity } from '@/lib/utils'
 import { ShipmentActions } from './shipment-actions'
+import { ReceivingForm } from './receiving-form'
 export const dynamic = 'force-dynamic'
 
 const LOCATION_LABELS: Record<string, string> = {
@@ -110,7 +111,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     .select(`
       id, received_at, notes,
       receipt_items(id, quantity_received, component:components(id, code, name, unit)),
-      inspections(id, overall_result, inspected_at,
+      inspections(id, overall_result, inspected_at, notes,
         items:inspection_items(id, quantity_accepted, quantity_rejected, result, notes,
           component:components(id, code, name, unit)
         )
@@ -128,6 +129,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
       id: string
       overall_result: string
       inspected_at: string
+      notes: string | null
       items: {
         id: string
         quantity_accepted: number
@@ -139,13 +141,13 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     }[]
   }
   const receipt = receiptData as ReceiptFull | null
-  const inspection = receipt?.inspections?.[0] ?? null
 
-  function resultBadge(result: string) {
-    if (result === 'pass') return <Badge className="badge-approved text-xs">Pass</Badge>
-    if (result === 'fail') return <Badge className="badge-cancelled text-xs">Fail</Badge>
-    return <Badge className="badge-under-review text-xs">Partial</Badge>
+  type ShipmentItem = {
+    id: string
+    quantity_shipped: number
+    component: { id: string; code: string; name: string; unit: string } | null
   }
+  const shipmentItems = (items ?? []) as ShipmentItem[]
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -265,13 +267,13 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             </Card>
           </div>
 
-          {/* Components */}
-          {(items ?? []).length > 0 && (
+          {/* Components — ordered quantities */}
+          {shipmentItems.length > 0 && (
             <Card>
-              <CardHeader><CardTitle>Components</CardTitle></CardHeader>
+              <CardHeader><CardTitle className="flex items-center gap-2"><Package className="w-4 h-4" />Components Ordered</CardTitle></CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {(items ?? []).map((item: { id: string; quantity_shipped: number; component: { id: string; code: string; name: string; unit: string } | null }) => (
+                  {shipmentItems.map(item => (
                     <div key={item.id} className="flex items-center justify-between py-1.5 border-b border-[var(--border)] last:border-0">
                       <div className="flex items-center gap-3">
                         <Package className="w-4 h-4 text-[var(--muted-foreground)]" />
@@ -284,7 +286,9 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                           </div>
                         ) : '—'}
                       </div>
-                      <span className="text-sm font-medium">{formatQuantity(item.quantity_shipped)} {item.component?.unit}</span>
+                      <span className="text-sm font-medium text-[var(--muted-foreground)]">
+                        {formatQuantity(item.quantity_shipped)} {item.component?.unit}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -292,84 +296,14 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             </Card>
           )}
 
-          {/* Receipt & Inspection inline */}
-          {receipt && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <ClipboardCheck className="w-4 h-4 text-indigo-500" />
-                    Receipt &amp; Inspection
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    {inspection && resultBadge(inspection.overall_result)}
-                    <Link href={`/receiving/${receipt.id}`} className="text-xs text-[var(--primary)] hover:underline">
-                      Full details
-                    </Link>
-                  </div>
-                </div>
-                <p className="text-xs text-[var(--muted-foreground)]">Received {formatDate(receipt.received_at)}</p>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {inspection && (() => {
-                  const inspItems = inspection.items ?? []
-                  const totalAccepted = inspItems.reduce((s, i) => s + (i.quantity_accepted ?? 0), 0)
-                  const totalRejected = inspItems.reduce((s, i) => s + (i.quantity_rejected ?? 0), 0)
-                  return (
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-                        <p className="text-lg font-bold text-green-700">{formatQuantity(totalAccepted)}</p>
-                        <p className="text-xs text-green-600 mt-0.5">Accepted</p>
-                      </div>
-                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-                        <p className="text-lg font-bold text-red-700">{formatQuantity(totalRejected)}</p>
-                        <p className="text-xs text-red-600 mt-0.5">Rejected</p>
-                      </div>
-                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-                        <p className="text-lg font-bold text-gray-900">
-                          {inspItems.filter(i => i.result === 'pass').length}/{inspItems.length}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-0.5">Items Passed</p>
-                      </div>
-                    </div>
-                  )
-                })()}
-
-                {inspection && (inspection.items ?? []).length > 0 && (
-                  <div className="space-y-2">
-                    {inspection.items.map(item => (
-                      <div key={item.id} className="flex items-center justify-between py-1.5 border-b border-[var(--border)] last:border-0">
-                        <div>
-                          {item.component ? (
-                            <>
-                              <p className="text-sm font-medium">{item.component.name}</p>
-                              <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
-                            </>
-                          ) : <span className="text-sm text-[var(--muted-foreground)]">—</span>}
-                        </div>
-                        <div className="flex items-center gap-3 text-xs">
-                          {item.result !== 'fail' && (
-                            <span className="flex items-center gap-1 text-green-700">
-                              <CheckCircle className="w-3 h-3" />{formatQuantity(item.quantity_accepted)} {item.component?.unit}
-                            </span>
-                          )}
-                          {(item.result === 'fail' || item.result === 'partial') && (
-                            <span className="flex items-center gap-1 text-red-700">
-                              <XCircle className="w-3 h-3" />{formatQuantity(item.quantity_rejected)} {item.component?.unit}
-                            </span>
-                          )}
-                          {resultBadge(item.result)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {receipt.notes && (
-                  <p className="text-xs text-[var(--muted-foreground)] bg-[var(--secondary)] px-2 py-1.5 rounded">{receipt.notes}</p>
-                )}
-              </CardContent>
-            </Card>
+          {/* Receiving & Inspection — editable form shown when delivered or receipt exists */}
+          {(isDelivered || receipt) && isAdmin && shipmentItems.length > 0 && (
+            <ReceivingForm
+              shipmentId={id}
+              shipmentItems={shipmentItems}
+              receipt={receipt}
+              isAdmin={isAdmin}
+            />
           )}
 
           {/* Linked samples */}
@@ -463,19 +397,6 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
               )}
             </CardContent>
           </Card>
-
-          {isDelivered && isAdmin && !receipt && (
-            <Card className="border-green-200 bg-green-50">
-              <CardContent className="pt-4">
-                <p className="text-sm text-green-800 mb-3">Shipment delivered — record receipt and inspection.</p>
-                <Link href={`/receiving/new?shipment=${id}`}>
-                  <button className="w-full text-sm bg-green-700 text-white rounded-md px-3 py-2 hover:bg-green-800 transition-colors">
-                    Record Receipt &amp; Inspection
-                  </button>
-                </Link>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </div>
