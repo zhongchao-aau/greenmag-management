@@ -88,13 +88,12 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               <TableHead>Status</TableHead>
               <TableHead>Expected Delivery</TableHead>
               <TableHead>Updated</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
+              </TableRow>
           </TableHeader>
           <TableBody>
             {(orders ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={5}>
                   <EmptyState
                     icon={<ShoppingCart className="w-8 h-8 text-[var(--muted-foreground)]" />}
                     title="No purchase orders"
@@ -110,7 +109,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                 supplier: { name: string } | null;
               }) => (
                 <TableRow key={o.id}>
-                  <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{o.code}</TableCell>
+                  <TableCell className="font-mono text-xs font-medium"><Link href={`/orders/${o.id}`} className="hover:text-[var(--primary)]">{o.code}</Link></TableCell>
                   <TableCell className="font-medium">
                     {o.supplier?.name ?? <span className="text-[var(--muted-foreground)]">â</span>}
                   </TableCell>
@@ -119,9 +118,6 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(o.expected_delivery)}</TableCell>
                   <TableCell className="text-sm text-[var(--muted-foreground)]">{formatRelative(o.updated_at)}</TableCell>
-                  <TableCell>
-                    <Link href={`/orders/${o.id}`} className="text-xs text-[var(--primary)] hover:underline">View</Link>
-                  </TableCell>
                 </TableRow>
               ))
             )}
