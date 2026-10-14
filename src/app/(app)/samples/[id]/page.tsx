@@ -5,48 +5,33 @@ import SampleActions from './sample-actions'
 
 const STATUS_LABELS: Record<string, string> = {
   approved_to_build: 'Approved to Build',
-  material_preparation: 'Material Preparation',
   manufacturing: 'Manufacturing',
-  manufactured: 'Manufactured',
   in_test: 'In Test',
-  post_test_analysis: 'Post-Test Analysis',
+  failure_analysis: 'Failure Analysis',
   passed: 'Passed',
-  failed: 'Failed',
-  deployed: 'Deployed',
   retired: 'Retired',
   scrapped: 'Scrapped',
 }
 
 const STATUS_COLORS: Record<string, string> = {
   approved_to_build: 'bg-indigo-100 text-indigo-800',
-  material_preparation: 'bg-purple-100 text-purple-800',
   manufacturing: 'bg-blue-100 text-blue-800',
-  manufactured: 'bg-cyan-100 text-cyan-800',
   in_test: 'bg-yellow-100 text-yellow-800',
-  post_test_analysis: 'bg-orange-100 text-orange-800',
+  failure_analysis: 'bg-orange-100 text-orange-800',
   passed: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-800',
-  deployed: 'bg-emerald-100 text-emerald-800',
   retired: 'bg-gray-100 text-gray-600',
   scrapped: 'bg-gray-100 text-gray-500',
 }
 
-const LIFECYCLE = [
-  { status: 'approved_to_build', label: 'Approved' },
-  { status: 'material_preparation', label: 'Materials' },
-  { status: 'manufacturing', label: 'Manufacturing' },
-  { status: 'manufactured', label: 'Manufactured' },
-  { status: 'in_test', label: 'Testing' },
-  { status: 'post_test_analysis', label: 'Analysis' },
-  { status: 'passed', label: 'Passed' },
-  { status: 'deployed', label: 'Deployed' },
+const ALL_STATUSES = [
+  { value: 'approved_to_build', label: 'Approved to Build' },
+  { value: 'manufacturing', label: 'Manufacturing' },
+  { value: 'in_test', label: 'In Test' },
+  { value: 'failure_analysis', label: 'Failure Analysis' },
+  { value: 'passed', label: 'Passed' },
+  { value: 'retired', label: 'Retired' },
+  { value: 'scrapped', label: 'Scrapped' },
 ]
-
-const TERMINAL_STATUSES = ['failed', 'retired', 'scrapped']
-
-function getLifecycleIndex(status: string) {
-  return LIFECYCLE.findIndex(s => s.status === status)
-}
 
 export default async function SampleDetailPage({
   params,
@@ -68,8 +53,6 @@ export default async function SampleDetailPage({
   const variant = (sample as any).product_variants as { id: string; code: string; name: string } | null
   const statusLabel = STATUS_LABELS[sample.status] ?? sample.status
   const statusColor = STATUS_COLORS[sample.status] ?? 'bg-gray-100 text-gray-600'
-  const currentIndex = getLifecycleIndex(sample.status)
-  const isTerminal = TERMINAL_STATUSES.includes(sample.status)
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
@@ -109,67 +92,29 @@ export default async function SampleDetailPage({
         </div>
       </div>
 
-      {/* Lifecycle Timeline */}
-      {!isTerminal && (
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Lifecycle Progress</h2>
-          <div className="flex items-center overflow-x-auto">
-            {LIFECYCLE.map((stage, idx) => {
-              const isDone = idx < currentIndex
-              const isCurrent = idx === currentIndex
-              return (
-                <div key={stage.status} className="flex items-center flex-1 last:flex-none min-w-0">
-                  <div className="flex flex-col items-center">
-                    <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
-                        isDone
-                          ? 'bg-indigo-600 text-white'
-                          : isCurrent
-                          ? 'bg-indigo-600 text-white ring-4 ring-indigo-100'
-                          : 'bg-gray-100 text-gray-400'
-                      }`}
-                    >
-                      {isDone ? '✓' : idx + 1}
-                    </div>
-                    <span
-                      className={`text-xs mt-1 whitespace-nowrap ${
-                        isDone || isCurrent ? 'text-indigo-700 font-medium' : 'text-gray-400'
-                      }`}
-                    >
-                      {stage.label}
-                    </span>
-                  </div>
-                  {idx < LIFECYCLE.length - 1 && (
-                    <div
-                      className={`flex-1 h-0.5 mx-1 ${
-                        idx < currentIndex ? 'bg-indigo-600' : 'bg-gray-200'
-                      }`}
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </div>
+      {/* Status Overview */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Status Overview</h2>
+        <div className="flex flex-wrap gap-2">
+          {ALL_STATUSES.map((s) => {
+            const isCurrent = s.value === sample.status
+            const color = STATUS_COLORS[s.value] ?? 'bg-gray-100 text-gray-600'
+            return (
+              <span
+                key={s.value}
+                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium transition-all ${
+                  isCurrent
+                    ? `${color} ring-2 ring-offset-1 ring-current`
+                    : 'bg-gray-50 text-gray-400 border border-gray-200'
+                }`}
+              >
+                {isCurrent && <span className="mr-1.5 text-xs">●</span>}
+                {s.label}
+              </span>
+            )
+          })}
         </div>
-      )}
-
-      {isTerminal && (
-        <div className={`rounded-lg border p-4 mb-6 flex items-center gap-3 ${
-          sample.status === 'failed'
-            ? 'bg-red-50 border-red-200'
-            : 'bg-gray-50 border-gray-200'
-        }`}>
-          <span className="text-2xl">
-            {sample.status === 'failed' ? '❌' : sample.status === 'scrapped' ? '🗑️' : '📦'}
-          </span>
-          <div>
-            <p className="font-medium text-gray-900">
-              Final status: <strong>{statusLabel}</strong>
-            </p>
-            <p className="text-sm text-gray-500">No further lifecycle transitions are possible.</p>
-          </div>
-        </div>
-      )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
@@ -234,28 +179,10 @@ export default async function SampleDetailPage({
                   <dd className="text-sm text-gray-800 mt-0.5">{(sample as any).location}</dd>
                 </div>
               )}
-              {(sample as any).material_date && (
-                <div>
-                  <dt className="text-xs text-gray-500">Material Ready</dt>
-                  <dd className="text-sm text-gray-800 mt-0.5">{new Date((sample as any).material_date).toLocaleDateString()}</dd>
-                </div>
-              )}
-              {(sample as any).manufacturing_date && (
-                <div>
-                  <dt className="text-xs text-gray-500">Manufacturing Start</dt>
-                  <dd className="text-sm text-gray-800 mt-0.5">{new Date((sample as any).manufacturing_date).toLocaleDateString()}</dd>
-                </div>
-              )}
               {sample.manufacture_date && (
                 <div>
                   <dt className="text-xs text-gray-500">Manufactured</dt>
                   <dd className="text-sm text-gray-800 mt-0.5">{new Date(sample.manufacture_date).toLocaleDateString()}</dd>
-                </div>
-              )}
-              {(sample as any).test_date && (
-                <div>
-                  <dt className="text-xs text-gray-500">Test Date</dt>
-                  <dd className="text-sm text-gray-800 mt-0.5">{new Date((sample as any).test_date).toLocaleDateString()}</dd>
                 </div>
               )}
               <div>
