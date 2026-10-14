@@ -22,7 +22,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (!profile) redirect('/login')
   const isAdmin = profile.role === 'admin'
 
@@ -35,7 +35,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
       variant:product_variants!variant_id(id, name, code, products(name))
     `)
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!request) notFound()
 
@@ -53,7 +53,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
   const { data: activity } = await supabase
     .from('activity_log')
     .select('id, action, description, created_at, performer:profiles!performed_by(full_name)')
-    .eq('entity_id', id)
+    .eq('entity_id', id)     .eq('entity_type', 'request')
     .order('created_at', { ascending: true })
 
   const isOwner = request.requester_id === user.id
