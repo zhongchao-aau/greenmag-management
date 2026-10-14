@@ -112,7 +112,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     if (orderIds.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: oiData } = await (supabase
-        .from('purchase_order_items')
+        .from('order_items')
         .select('id, quantity, component:components(id, code, name, unit)')
         .in('order_id', orderIds) as any)
       orderDerivedItems = (oiData ?? []).map((oi: any) => ({
