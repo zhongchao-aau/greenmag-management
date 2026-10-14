@@ -7,14 +7,10 @@ import Link from 'next/link'
 
 const STATUSES = [
   { value: 'approved_to_build', label: 'Approved to Build' },
-  { value: 'material_preparation', label: 'Material Preparation' },
   { value: 'manufacturing', label: 'Manufacturing' },
-  { value: 'manufactured', label: 'Manufactured' },
   { value: 'in_test', label: 'In Test' },
-  { value: 'post_test_analysis', label: 'Post-Test Analysis' },
+  { value: 'failure_analysis', label: 'Failure Analysis' },
   { value: 'passed', label: 'Passed' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'deployed', label: 'Deployed' },
   { value: 'retired', label: 'Retired' },
   { value: 'scrapped', label: 'Scrapped' },
 ]
