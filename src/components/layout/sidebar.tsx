@@ -4,7 +4,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
-  FlaskConical, Building2, LogOut, Magnet, Factory, TestTube2,
+  FlaskConical, Building2, LogOut, Factory, TestTube2,
   Layers, Wrench, Archive
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
@@ -64,14 +64,8 @@ export function Sidebar({ profile }: SidebarProps) {
   return (
     <aside className="flex flex-col w-60 min-h-screen bg-[var(--card)] border-r border-[var(--border)] shrink-0">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[var(--border)]">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--primary)]">
-          <Magnet className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-[var(--foreground)] leading-tight">GreenMag</p>
-          <p className="text-xs text-[var(--muted-foreground)]">Management</p>
-        </div>
+      <div className="flex items-center px-5 py-4 border-b border-[var(--border)]">
+        <img src="/greenmag-logo.png" alt="GreenMag" style={{height: '40px', width: 'auto'}} />
       </div>
 
       {/* Navigation */}
@@ -143,4 +137,4 @@ export function Sidebar({ profile }: SidebarProps) {
       </div>
     </aside>
   )
-}
+    }
