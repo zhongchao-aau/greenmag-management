@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Magnet } from 'lucide-react'
 import Link from 'next/link'
 
 export default function LoginPage() {
@@ -34,48 +33,21 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         {/* Logo */}
         <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center justify-center w-12 h-12 rounded-xl bg-[var(--primary)] mb-3">
-            <Magnet className="w-6 h-6 text-white" />
-          </div>
-          <h1 className="text-xl font-bold text-[var(--foreground)]">GreenMag Procurement</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-1">Sign in to your account</p>
+          <img src="/greenmag-logo.png" alt="GreenMag" style={{height: '48px', width: 'auto', marginBottom: '12px'}} />
+          <p className="text-sm text-[var(--muted-foreground)]">Sign in to your account</p>
         </div>
-
         {/* Form */}
         <div className="card p-6">
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <Input
-              label="Email address"
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder="you@energy.aau.dk"
-              required
-              autoComplete="email"
-            />
-            <Input
-              label="Password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              placeholder="••••••••"
-              required
-              autoComplete="current-password"
-            />
-            {error && (
-              <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>
-            )}
-            <Button type="submit" loading={loading} className="w-full mt-1">
-              Sign in
-            </Button>
+            <Input label="Email address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@energy.aau.dk" required autoComplete="email" />
+            <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required autoComplete="current-password" />
+            {error && (<p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>)}
+            <Button type="submit" loading={loading} className="w-full mt-1">Sign in</Button>
           </form>
         </div>
-
         <p className="text-center text-xs text-[var(--muted-foreground)] mt-4">
           Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-[var(--primary)] hover:underline">
-            Create one
-          </Link>
+          <Link href="/signup" className="text-[var(--primary)] hover:underline">Create one</Link>
         </p>
       </div>
     </div>
