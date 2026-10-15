@@ -218,7 +218,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
   if (!profile) redirect('/login')
   const isAdmin = profile.role === 'admin'
 
@@ -230,7 +230,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
       created_by_profile:profiles!created_by(full_name)
     `)
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!order) notFound()
 
