@@ -4,6 +4,8 @@
  * Supports: UPS, FedEx, DHL
  * Uses Aftership API (AFTERSHIP_API_KEY env var) as the primary aggregator.
  * Falls back to direct carrier public APIs when no key is set.
+ *
+ * Auto-tracking only applies to shipments in eu_transit status.
  */
 
 export type CarrierSlug = 'ups' | 'fedex' | 'dhl' | 'ups-mi' | 'unknown'
@@ -11,12 +13,13 @@ export type CarrierSlug = 'ups' | 'fedex' | 'dhl' | 'ups-mi' | 'unknown'
 export interface TrackingResult {
   carrier: string
   trackingNumber: string
-  status: string          // normalised: in_transit | customs | out_for_delivery | delivered | exception
+  status: string          // normalised: cn_transit | eu_transit | customs | delivered | exception
   statusDetail: string    // human-readable description
   location: string
   estimatedDelivery?: string
   events: TrackingEvent[]
   updatedAt: string
+  isException?: boolean   // true if the carrier reports an exception
 }
 
 export interface TrackingEvent {
@@ -34,16 +37,16 @@ export function detectCarrier(trackingNumber: string): CarrierSlug {
   return 'unknown'
 }
 
-/** Normalise carrier-specific status strings to our shipment_status enum */
+/** Normalise carrier-specific status strings to our shipment_status enum values */
 export function normaliseStatus(rawStatus: string): string {
   const s = rawStatus.toLowerCase()
   if (s.includes('delivered')) return 'delivered'
-  if (s.includes('out for delivery') || s.includes('out_for_delivery')) return 'out_for_delivery'
-  if (s.includes('customs') || s.includes('held') || s.includes('clearance')) return 'customs'
   if (s.includes('exception') || s.includes('failed') || s.includes('returned')) return 'exception'
-  if (s.includes('in transit') || s.includes('in_transit') || s.includes('transit')) return 'in_transit'
-  if (s.includes('dispatched') || s.includes('picked up') || s.includes('accepted')) return 'dispatched'
-  return 'in_transit'
+  if (s.includes('out for delivery') || s.includes('out_for_delivery')) return 'eu_transit'
+  if (s.includes('customs') || s.includes('held') || s.includes('clearance')) return 'customs'
+  if (s.includes('in transit') || s.includes('in_transit') || s.includes('transit')) return 'eu_transit'
+  if (s.includes('dispatched') || s.includes('picked up') || s.includes('accepted')) return 'eu_transit'
+  return 'eu_transit'
 }
 
 // ─── Aftership (aggregator, preferred) ───────────────────────────────────────
@@ -73,22 +76,23 @@ async function trackViaAftership(
     description: c.message || '',
   }))
 
+  const normStatus = normaliseStatus(t.tag || '')
   return {
     carrier: slug,
     trackingNumber,
-    status: normaliseStatus(t.tag || ''),
+    status: normStatus,
     statusDetail: t.subtag_message || t.tag || '',
     location: t.destination_city || '',
     estimatedDelivery: t.expected_delivery || undefined,
     events,
     updatedAt: new Date().toISOString(),
+    isException: normStatus === 'exception',
   }
 }
 
 // ─── UPS public (unofficial) ─────────────────────────────────────────────────
 
 async function trackUPS(trackingNumber: string): Promise<TrackingResult> {
-  // UPS tracking page uses a JSON API endpoint
   const url = `https://www.ups.com/track/api/Track/GetStatus?loc=en_US`
   const body = JSON.stringify({
     Locale: 'en_US',
@@ -120,15 +124,17 @@ async function trackUPS(trackingNumber: string): Promise<TrackingResult> {
     description: a.description || '',
   }))
 
+  const normStatus = normaliseStatus(rawStatus)
   return {
     carrier: 'ups',
     trackingNumber,
-    status: normaliseStatus(rawStatus),
+    status: normStatus,
     statusDetail: pkg.statusDescription || rawStatus,
     location: pkg.deliveryDestination?.city || '',
     estimatedDelivery: pkg.scheduledDelivery,
     events,
     updatedAt: new Date().toISOString(),
+    isException: normStatus === 'exception',
   }
 }
 
@@ -170,28 +176,28 @@ async function trackFedEx(trackingNumber: string): Promise<TrackingResult> {
     description: e.eventDescription || '',
   }))
 
+  const normStatus = normaliseStatus(pkg.keyStatus || '')
   return {
     carrier: 'fedex',
     trackingNumber,
-    status: normaliseStatus(pkg.keyStatus || ''),
+    status: normStatus,
     statusDetail: pkg.statusDescription || pkg.keyStatus || '',
     location: pkg.destinationCity || '',
     estimatedDelivery: pkg.displayEstimatedDeliveryDate,
     events,
     updatedAt: new Date().toISOString(),
+    isException: normStatus === 'exception',
   }
 }
 
 // ─── DHL public ──────────────────────────────────────────────────────────────
 
 async function trackDHL(trackingNumber: string): Promise<TrackingResult> {
-  // DHL has a public REST API (no key for basic tracking)
   const url = `https://api-eu.dhl.com/track/shipments?trackingNumber=${encodeURIComponent(trackingNumber)}&service=express`
   const res = await fetch(url, {
     headers: { 'User-Agent': 'Mozilla/5.0' },
     next: { revalidate: 0 },
   })
-  // DHL also has a parcel API
   if (!res.ok) {
     const url2 = `https://api-eu.dhl.com/track/shipments?trackingNumber=${encodeURIComponent(trackingNumber)}`
     const res2 = await fetch(url2, { headers: { 'User-Agent': 'Mozilla/5.0' }, next: { revalidate: 0 } })
@@ -208,15 +214,17 @@ async function trackDHL(trackingNumber: string): Promise<TrackingResult> {
   }))
 
   const rawStatus = shp.status?.statusCode || shp.status?.description || 'transit'
+  const normStatus = normaliseStatus(rawStatus)
   return {
     carrier: 'dhl',
     trackingNumber,
-    status: normaliseStatus(rawStatus),
+    status: normStatus,
     statusDetail: shp.status?.description || rawStatus,
     location: shp.status?.location?.address?.addressLocality || '',
     estimatedDelivery: shp.estimatedTimeOfDelivery,
     events,
     updatedAt: new Date().toISOString(),
+    isException: normStatus === 'exception',
   }
 }
 
@@ -225,6 +233,7 @@ async function trackDHL(trackingNumber: string): Promise<TrackingResult> {
 /**
  * Fetch tracking info for a single shipment.
  * Uses Aftership if AFTERSHIP_API_KEY is set, otherwise tries direct carrier APIs.
+ * Note: auto-tracking only runs for shipments in eu_transit status.
  */
 export async function fetchTracking(
   trackingNumber: string,
