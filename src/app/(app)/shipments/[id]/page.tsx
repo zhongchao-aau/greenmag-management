@@ -60,6 +60,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     .single() as any)
   const shipment = shipmentData as {
     id: string; code: string; description: string | null; status: string;
+    has_exception: boolean; exception_notes: string | null;
     expected_delivery: string | null; actual_delivery: string | null; notes: string | null;
     china_carrier: string | null; china_tracking_number: string | null; china_tracking_url: string | null; china_status: string | null;
     eu_carrier: string | null; eu_tracking_number: string | null; eu_tracking_url: string | null; eu_status: string | null;
@@ -397,7 +398,13 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                   Edit Details
                 </Link>
               </div>
-              <ShipmentActions shipmentId={id} status={shipment.status} isDelivered={isDelivered} />
+              <ShipmentActions
+                shipmentId={id}
+                status={shipment.status}
+                isAdmin={isAdmin}
+                hasException={!!shipment.has_exception}
+                exceptionNotes={shipment.exception_notes ?? null}
+              />
             </>
           )}
 
