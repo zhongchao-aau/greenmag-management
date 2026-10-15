@@ -4,19 +4,21 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptyState } from '@/components/ui/table'
-import { Plus, Truck } from 'lucide-react'
-import { shipmentStatusClass, SHIPMENT_STATUS_LABELS, formatDate, formatRelative } from '@/lib/utils'
+import { AlertTriangle, Plus } from 'lucide-react'
+import { shipmentStatusClass, SHIPMENT_STATUS_LABELS, formatDate } from '@/lib/utils'
 import { RefreshAllTrackingButton } from './refresh-button'
 export const dynamic = 'force-dynamic'
 
 const STATUS_TABS = [
   { value: '', label: 'All' },
   { value: 'created', label: 'Created' },
-  { value: 'china_dispatched', label: 'China' },
-  { value: 'in_transit', label: 'In Transit' },
+  { value: 'china_dispatched', label: 'China Dispatched' },
+  { value: 'cn_transit', label: 'CN Transit' },
   { value: 'customs', label: 'Customs' },
   { value: 'eu_transit', label: 'EU Transit' },
   { value: 'delivered', label: 'Delivered' },
+  { value: 'received', label: 'Received' },
+  { value: 'complete', label: 'Complete' },
 ]
 
 export default async function ShipmentsPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
@@ -34,7 +36,8 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
   let query = supabase
     .from('shipments')
     .select(`
-      id, code, description, status, expected_delivery, actual_delivery,
+      id, code, description, status, has_exception,
+      expected_delivery, actual_delivery,
       china_carrier, eu_carrier,
       order:purchase_orders(code)
     `)
@@ -42,7 +45,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
 
   if (status) query = query.eq('status', status)
 
-  const { data: shipments } = await query.limit(50)
+  const { data: shipments } = await query.limit(100)
   const activeStatus = status ?? ''
 
   // Fetch all linked orders from the join table for display
@@ -51,7 +54,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
   const shipmentOrderMap: Record<string, string[]> = {}
   if (shipmentIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: soRows } = await (supabase.from('shipment_orders').select('shipment_id, order_id').in('shipment_id', shipmentIds) as any)
+    const { data: soRows } = await (supabase.from('shipment_order_links').select('shipment_id, order_id').in('shipment_id', shipmentIds) as any)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allOrderIds = [...new Set((soRows ?? []).map((r: any) => r.order_id as string))]
     if (allOrderIds.length > 0) {
@@ -86,6 +89,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
         </div>
       </div>
 
+      {/* Status tabs */}
       <div className="flex gap-1 mb-4 border-b border-[var(--border)] overflow-x-auto">
         {STATUS_TABS.map(tab => (
           <Link
@@ -127,6 +131,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
             ) : (
               (shipments ?? []).map((s: {
                 id: string; code: string; description: string | null; status: string;
+                has_exception: boolean;
                 expected_delivery: string | null; actual_delivery: string | null;
                 china_carrier: string | null; eu_carrier: string | null;
                 order: { code: string } | null
@@ -134,7 +139,8 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
                 <TableRow key={s.id}>
                   <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{s.code}</TableCell>
                   <TableCell>
-                    <Link href={`/shipments/${s.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
+                    <Link href={`/shipments/${s.id}`} className="text-sm font-medium hover:text-[var(--primary)] flex items-center gap-1.5">
+                      {s.has_exception && <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />}
                       {s.description ?? s.code}
                     </Link>
                     {(() => {
@@ -145,7 +151,10 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
                     })()}
                   </TableCell>
                   <TableCell>
-                    <Badge className={shipmentStatusClass(s.status as never)}>{SHIPMENT_STATUS_LABELS[s.status as never]}</Badge>
+                    <div className="flex items-center gap-1.5">
+                      <Badge className={shipmentStatusClass(s.status as never)}>{SHIPMENT_STATUS_LABELS[s.status as never] ?? s.status}</Badge>
+                      {s.has_exception && <span className="text-xs text-amber-600 font-medium">Exception</span>}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(s.expected_delivery)}</TableCell>
                   <TableCell className="text-xs text-[var(--muted-foreground)]">
