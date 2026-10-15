@@ -4,7 +4,8 @@
 export type UserRole = 'user' | 'admin'
 export type RequestStatus = 'draft' | 'submitted' | 'under_review' | 'approved' | 'changes_requested' | 'rejected' | 'closed'
 export type OrderStatus = 'approved' | 'ordered' | 'confirmed' | 'partially_shipped' | 'shipped' | 'partially_received' | 'received' | 'closed'
-export type ShipmentStatus = 'created' | 'dispatched' | 'in_transit' | 'customs' | 'out_for_delivery' | 'delivered' | 'exception' | 'returned'
+// Legacy values kept for backward compat; new workflow uses: created → china_dispatched → cn_transit → customs → eu_transit → delivered → received → complete
+export type ShipmentStatus = 'created' | 'china_dispatched' | 'cn_transit' | 'customs' | 'eu_transit' | 'delivered' | 'received' | 'complete' | 'dispatched' | 'in_transit' | 'out_for_delivery' | 'exception' | 'returned'
 export type InspectionResult = 'pending' | 'passed' | 'partially_passed' | 'failed'
 export type InventoryTxType = 'receipt' | 'usage' | 'adjustment' | 'return' | 'damaged' | 'reversal'
 export type TrackingLeg = 'china' | 'eu' | 'single'
@@ -210,6 +211,8 @@ export interface Shipment {
   code: string
   description: string | null
   status: ShipmentStatus
+  has_exception: boolean
+  exception_notes: string | null
   china_carrier: string | null
   china_tracking_number: string | null
   china_tracking_url: string | null
