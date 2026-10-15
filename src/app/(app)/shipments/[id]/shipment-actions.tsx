@@ -126,9 +126,8 @@ export function ShipmentActions({ shipmentId, status, isAdmin, hasException, exc
       shipment_id: shipmentId,
       description: event.description,
       location: event.location || null,
-      leg: event.leg,
-      event_time: new Date(event.event_time).toISOString(),
-      is_manual: true,
+      tracking_leg: event.leg,
+      event_date: new Date(event.event_time).toISOString(),
     })
     if (err) setError(err.message)
     else {
