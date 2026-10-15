@@ -107,13 +107,12 @@ export async function POST(req: NextRequest) {
         await supabase.from('shipment_events').upsert(
           {
             shipment_id: shp.id,
-            leg: 'eu',
-            event_time: event.date,
+            tracking_leg: 'eu',
+            event_date: event.date,
             location: event.location,
             description: event.description,
-            is_manual: false,
           },
-          { ignoreDuplicates: true, onConflict: 'shipment_id,event_time,description' }
+          { ignoreDuplicates: true, onConflict: 'shipment_id,event_date,description' }
         )
       }
 
