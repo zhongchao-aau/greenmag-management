@@ -56,11 +56,17 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
 
 export const SHIPMENT_STATUS_LABELS: Record<ShipmentStatus, string> = {
   created: 'Created',
+  china_dispatched: 'China Dispatched',
+  cn_transit: 'CN Transit',
+  customs: 'Customs',
+  eu_transit: 'EU Transit',
+  delivered: 'Delivered',
+  received: 'Received',
+  complete: 'Complete',
+  // Legacy values kept for backward compat
   dispatched: 'Dispatched',
   in_transit: 'In Transit',
-  customs: 'Customs',
   out_for_delivery: 'Out for Delivery',
-  delivered: 'Delivered',
   exception: 'Exception',
   returned: 'Returned',
 }
@@ -103,11 +109,17 @@ export function orderStatusClass(status: OrderStatus): string {
 export function shipmentStatusClass(status: ShipmentStatus): string {
   const map: Record<ShipmentStatus, string> = {
     created: 'badge-draft',
+    china_dispatched: 'badge-submitted',
+    cn_transit: 'badge-ordered',
+    customs: 'badge-review',
+    eu_transit: 'badge-shipped',
+    delivered: 'badge-delivered',
+    received: 'badge-approved',
+    complete: 'badge-closed',
+    // Legacy
     dispatched: 'badge-submitted',
     in_transit: 'badge-ordered',
-    customs: 'badge-review',
     out_for_delivery: 'badge-shipped',
-    delivered: 'badge-delivered',
     exception: 'badge-rejected',
     returned: 'badge-changes',
   }
