@@ -137,4 +137,4 @@ export function Sidebar({ profile }: SidebarProps) {
       </div>
     </aside>
   )
-    }
+}
