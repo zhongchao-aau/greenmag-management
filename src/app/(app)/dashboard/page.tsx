@@ -6,12 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   requestStatusClass, REQUEST_STATUS_LABELS,
   shipmentStatusClass, SHIPMENT_STATUS_LABELS,
-  orderStatusClass, ORDER_STATUS_LABELS,
   formatDate, formatRelative
 } from '@/lib/utils'
 import {
-  AlertCircle, Clock, CheckCircle2, Package, Truck,
-  FileText, ShoppingCart, ArrowRight, AlertTriangle
+  AlertCircle, Bell, CheckCircle2, ClipboardCheck, Package,
+  Truck, FileText, ShoppingCart, ArrowRight, AlertTriangle
 } from 'lucide-react'
 export const dynamic = 'force-dynamic'
 
@@ -31,6 +30,8 @@ export default async function DashboardPage() {
     { data: pendingRequests },
     { data: activeShipments },
     { data: activeOrders },
+    { data: deliveredShipmentsRaw },
+    { data: receivedShipmentsRaw },
     { data: lowStockItems },
     { data: recentActivity },
   ] = await Promise.all([
@@ -50,12 +51,12 @@ export default async function DashboardPage() {
           .limit(10)
       : { data: [] },
 
-    // Active shipments
+    // Active shipments (not complete/returned/received)
     supabase.from('shipments')
-      .select('id, code, description, status, expected_delivery, actual_delivery')
-      .not('status', 'in', '("delivered","returned")')
+      .select('id, code, description, status, has_exception, expected_delivery, actual_delivery')
+      .not('status', 'in', '("complete","received","returned")')
       .order('expected_delivery', { ascending: true })
-      .limit(8),
+      .limit(10),
 
     // Active orders (not closed)
     supabase.from('purchase_orders')
@@ -63,6 +64,20 @@ export default async function DashboardPage() {
       .not('status', 'in', '("closed","received")')
       .order('expected_delivery', { ascending: true })
       .limit(8),
+
+    // Delivered but not yet received — needs receiving action
+    supabase.from('shipments')
+      .select('id, code, description, actual_delivery')
+      .eq('status', 'delivered')
+      .order('actual_delivery', { ascending: true })
+      .limit(10),
+
+    // Received but not yet inspected — check for missing inspections
+    supabase.from('shipments')
+      .select('id, code, description, actual_delivery')
+      .eq('status', 'received')
+      .order('actual_delivery', { ascending: true })
+      .limit(10),
 
     // Low stock items (admin only)
     isAdmin
@@ -84,8 +99,23 @@ export default async function DashboardPage() {
     item.component && item.quantity < (item.component as { low_stock_threshold: number }).low_stock_threshold
   )
 
-  const deliveredShipments = (activeShipments ?? []).filter((s: { status: string }) => s.status === 'delivered')
-  const inTransitShipments = (activeShipments ?? []).filter((s: { status: string }) => !['delivered', 'created'].includes(s.status))
+  const deliveredShipments = deliveredShipmentsRaw ?? []
+  const receivedShipments = receivedShipmentsRaw ?? []
+
+  // Received shipments that don't have a receipt yet
+  let shipmentsNeedingInspection: typeof receivedShipments = []
+  if (receivedShipments.length > 0) {
+    const { data: existingReceipts } = await supabase
+      .from('receipts')
+      .select('shipment_id')
+      .in('shipment_id', receivedShipments.map((s: { id: string }) => s.id))
+    const receivedIds = new Set((existingReceipts ?? []).map((r: { shipment_id: string }) => r.shipment_id))
+    shipmentsNeedingInspection = receivedShipments.filter((s: { id: string }) => !receivedIds.has(s.id))
+  }
+
+  const inTransitCount = (activeShipments ?? []).filter((s: { status: string }) =>
+    !['delivered', 'created'].includes(s.status)
+  ).length
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -96,13 +126,13 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Admin attention queue */}
+      {/* Admin stat row */}
       {isAdmin && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           <StatCard
             label="Pending Requests"
             value={(pendingRequests ?? []).length}
-            icon={<Clock className="w-4 h-4" />}
+            icon={<FileText className="w-4 h-4" />}
             href="/requests?status=submitted"
             urgent={(pendingRequests ?? []).length > 0}
           />
@@ -114,7 +144,7 @@ export default async function DashboardPage() {
           />
           <StatCard
             label="Shipments In Transit"
-            value={inTransitShipments.length}
+            value={inTransitCount}
             icon={<Truck className="w-4 h-4" />}
             href="/shipments"
           />
@@ -125,6 +155,70 @@ export default async function DashboardPage() {
             href="/inventory?filter=low_stock"
             urgent={actualLowStock.length > 0}
           />
+        </div>
+      )}
+
+      {/* Action reminders — always visible to admins */}
+      {isAdmin && (deliveredShipments.length > 0 || shipmentsNeedingInspection.length > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+
+          {/* Needs Receiving */}
+          {deliveredShipments.length > 0 && (
+            <Card className="border-blue-300 bg-blue-50 dark:bg-blue-950/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400 text-sm">
+                  <Bell className="w-4 h-4" />
+                  {deliveredShipments.length === 1
+                    ? '1 Shipment Needs Receiving'
+                    : `${deliveredShipments.length} Shipments Need Receiving`}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {deliveredShipments.map((s: { id: string; code: string; description: string | null; actual_delivery: string | null }) => (
+                  <Link key={s.id} href={`/shipments/${s.id}`}
+                    className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors">
+                    <div>
+                      <span className="text-sm font-medium text-blue-800 dark:text-blue-300">{s.description ?? s.code}</span>
+                      <p className="text-xs text-blue-600 dark:text-blue-400">Delivered {formatDate(s.actual_delivery)}</p>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                  </Link>
+                ))}
+                <Link href="/shipments?status=delivered" className="text-xs text-blue-600 hover:underline flex items-center gap-1 mt-1 px-2">
+                  View all delivered <ArrowRight className="w-3 h-3" />
+                </Link>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Needs Inspection */}
+          {shipmentsNeedingInspection.length > 0 && (
+            <Card className="border-purple-300 bg-purple-50 dark:bg-purple-950/30">
+              <CardHeader className="pb-2">
+                <CardTitle className="flex items-center gap-2 text-purple-700 dark:text-purple-400 text-sm">
+                  <ClipboardCheck className="w-4 h-4" />
+                  {shipmentsNeedingInspection.length === 1
+                    ? '1 Shipment Awaiting Inspection'
+                    : `${shipmentsNeedingInspection.length} Shipments Awaiting Inspection`}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-1.5">
+                {shipmentsNeedingInspection.map((s: { id: string; code: string; description: string | null; actual_delivery: string | null }) => (
+                  <Link key={s.id} href={`/shipments/${s.id}`}
+                    className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition-colors">
+                    <div>
+                      <span className="text-sm font-medium text-purple-800 dark:text-purple-300">{s.description ?? s.code}</span>
+                      <p className="text-xs text-purple-600 dark:text-purple-400">Received — inspection pending</p>
+                    </div>
+                    <ArrowRight className="w-3.5 h-3.5 text-purple-500 shrink-0" />
+                  </Link>
+                ))}
+                <Link href="/shipments?status=received" className="text-xs text-purple-600 hover:underline flex items-center gap-1 mt-1 px-2">
+                  View all received <ArrowRight className="w-3 h-3" />
+                </Link>
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -213,7 +307,7 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          {/* Active Shipments */}
+          {/* Active Shipments (excluding complete/received) */}
           {(activeShipments ?? []).length > 0 && (
             <Card>
               <CardHeader>
@@ -229,7 +323,7 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
-                  {(activeShipments ?? []).map((s: { id: string; code: string; description: string | null; status: string; expected_delivery: string | null }) => (
+                  {(activeShipments ?? []).map((s: { id: string; code: string; description: string | null; status: string; has_exception: boolean; expected_delivery: string | null }) => (
                     <Link
                       key={s.id}
                       href={`/shipments/${s.id}`}
@@ -238,11 +332,17 @@ export default async function DashboardPage() {
                       <div className="flex items-center gap-3">
                         <span className="font-mono text-xs text-[var(--muted-foreground)] w-20 shrink-0">{s.code}</span>
                         <div>
-                          <p className="text-sm">{s.description ?? s.code}</p>
+                          <div className="flex items-center gap-1.5">
+                            {s.has_exception && <AlertTriangle className="w-3 h-3 text-amber-500 shrink-0" />}
+                            <p className="text-sm">{s.description ?? s.code}</p>
+                          </div>
                           <p className="text-xs text-[var(--muted-foreground)]">Expected {formatDate(s.expected_delivery)}</p>
                         </div>
                       </div>
-                      <Badge className={shipmentStatusClass(s.status as never)}>{SHIPMENT_STATUS_LABELS[s.status as never]}</Badge>
+                      <div className="flex items-center gap-1.5">
+                        <Badge className={shipmentStatusClass(s.status as never)}>{SHIPMENT_STATUS_LABELS[s.status as never] ?? s.status}</Badge>
+                        {s.has_exception && <span className="text-xs text-amber-600 font-medium">!</span>}
+                      </div>
                     </Link>
                   ))}
                 </div>
@@ -251,7 +351,7 @@ export default async function DashboardPage() {
           )}
         </div>
 
-        {/* Right column: activity */}
+        {/* Right column: activity + low stock */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -309,6 +409,16 @@ export default async function DashboardPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* All clear state */}
+          {isAdmin && deliveredShipments.length === 0 && shipmentsNeedingInspection.length === 0 && actualLowStock.length === 0 && (
+            <Card>
+              <CardContent className="py-6 text-center">
+                <Package className="w-8 h-8 text-green-500 mx-auto mb-2" />
+                <p className="text-sm text-[var(--muted-foreground)]">Everything is up to date.</p>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </div>
@@ -320,10 +430,10 @@ function StatCard({ label, value, icon, href, urgent }: {
 }) {
   return (
     <Link href={href}>
-      <div className={`card p-4 hover:shadow-sm transition-shadow ${urgent && value > 0 ? 'border-amber-300 bg-amber-50' : ''}`}>
+      <div className={`card p-4 hover:shadow-sm transition-shadow ${urgent && value > 0 ? 'border-amber-300 bg-amber-50 dark:bg-amber-950/30' : ''}`}>
         <div className="flex items-center justify-between mb-2">
           <span className={`${urgent && value > 0 ? 'text-amber-500' : 'text-[var(--muted-foreground)]'}`}>{icon}</span>
-          <span className={`text-2xl font-bold ${urgent && value > 0 ? 'text-amber-700' : 'text-[var(--foreground)]'}`}>{value}</span>
+          <span className={`text-2xl font-bold ${urgent && value > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-[var(--foreground)]'}`}>{value}</span>
         </div>
         <p className="text-xs text-[var(--muted-foreground)]">{label}</p>
       </div>
