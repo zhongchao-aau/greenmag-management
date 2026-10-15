@@ -1,11 +1,13 @@
 /**
  * POST /api/tracking/refresh
- * Refreshes tracking status for one or all active shipments.
+ * Refreshes tracking status for one or all eu_transit shipments.
+ * Auto-tracking only runs for shipments in eu_transit — China leg
+ * has too many carriers without a standard API, so it is updated manually.
  *
  * Body (JSON):
- *   { shipmentId?: string }   — refresh a single shipment; omit to refresh all active
+ *   { shipmentId?: string }   — refresh a single shipment; omit to refresh all eu_transit
  *
- * Auth: requires valid Supabase session (admin only).
+ * Auth: requires valid Supabase session (admin only) or service role key.
  *
  * Returns:
  *   { updated: number, errors: Array<{id, code, error}> }
@@ -14,7 +16,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { fetchTracking, normaliseStatus } from '@/lib/tracking'
+import { fetchTracking } from '@/lib/tracking'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 30  // Vercel function timeout
@@ -38,14 +40,18 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const { shipmentId } = body as { shipmentId?: string }
 
-  // Fetch shipments to refresh
+  // Only refresh eu_transit shipments — EU carrier APIs are supported
   let query = supabase
     .from('shipments')
-    .select('id, code, eu_carrier, eu_tracking_number, china_carrier, china_tracking_number, status')
-    .not('status', 'in', '("delivered","returned","exception")')
+    .select('id, code, eu_carrier, eu_tracking_number, status')
+    .eq('status', 'eu_transit')
 
   if (shipmentId) {
-    query = query.eq('id', shipmentId)
+    // Allow refreshing a specific shipment regardless of status
+    query = supabase
+      .from('shipments')
+      .select('id, code, eu_carrier, eu_tracking_number, status')
+      .eq('id', shipmentId)
   }
 
   const { data: shipments, error: fetchErr } = await query
@@ -56,34 +62,37 @@ export async function POST(req: NextRequest) {
   const results: Array<{ id: string; code: string; updated: boolean; status?: string; error?: string }> = []
 
   for (const shp of shipments ?? []) {
-    // Determine which tracking number to use (EU/main leg preferred)
-    const trackingNumber = shp.eu_tracking_number || shp.china_tracking_number
-    const carrier = shp.eu_carrier || shp.china_carrier
+    const trackingNumber = shp.eu_tracking_number
+    const carrier = shp.eu_carrier
 
     if (!trackingNumber) {
-      results.push({ id: shp.id, code: shp.code, updated: false, error: 'No tracking number' })
+      results.push({ id: shp.id, code: shp.code, updated: false, error: 'No EU tracking number' })
       continue
     }
 
     try {
       const tracking = await fetchTracking(trackingNumber.trim(), carrier?.toLowerCase())
-      const newStatus = normaliseStatus(tracking.status)
 
       // Update shipment row
       const update: Record<string, unknown> = {
         eu_status: tracking.statusDetail,
         updated_at: new Date().toISOString(),
       }
-      if (newStatus !== shp.status) {
-        update.status = newStatus
-      }
-      if (tracking.estimatedDelivery) {
-        update.expected_delivery = tracking.estimatedDelivery
-      }
-      if (newStatus === 'delivered' && tracking.events.length > 0) {
-        // Best-effort: set actual_delivery from the last event date
+
+      // Promote status: eu_transit → delivered (auto), handle exception flag
+      if (tracking.status === 'delivered' && shp.status === 'eu_transit') {
+        update.status = 'delivered'
+        // Set actual_delivery from the most recent delivered event
         const deliveredEvent = tracking.events.find(e => e.description.toLowerCase().includes('deliver'))
         if (deliveredEvent?.date) update.actual_delivery = deliveredEvent.date
+      } else if (tracking.isException) {
+        // Flag exception but keep the current status — admin will review
+        update.has_exception = true
+        update.exception_notes = tracking.statusDetail
+      }
+
+      if (tracking.estimatedDelivery) {
+        update.expected_delivery = tracking.estimatedDelivery
       }
 
       const { error: updateErr } = await supabase
@@ -92,22 +101,23 @@ export async function POST(req: NextRequest) {
         .eq('id', shp.id)
       if (updateErr) throw new Error(updateErr.message)
 
-      // Insert new events we haven't seen yet
+      // Insert new shipment events (upsert to avoid duplicates)
       for (const event of tracking.events) {
         if (!event.date || !event.description) continue
         await supabase.from('shipment_events').upsert(
           {
             shipment_id: shp.id,
-            tracking_leg: shp.eu_tracking_number ? 'eu' : 'china',
-            event_date: event.date,
+            leg: 'eu',
+            event_time: event.date,
             location: event.location,
             description: event.description,
+            is_manual: false,
           },
-          { ignoreDuplicates: true, onConflict: 'shipment_id,event_date,description' }
+          { ignoreDuplicates: true, onConflict: 'shipment_id,event_time,description' }
         )
       }
 
-      results.push({ id: shp.id, code: shp.code, updated: true, status: newStatus })
+      results.push({ id: shp.id, code: shp.code, updated: true, status: (update.status as string) ?? shp.status })
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       results.push({ id: shp.id, code: shp.code, updated: false, error: msg })
@@ -115,7 +125,7 @@ export async function POST(req: NextRequest) {
   }
 
   const updated = results.filter(r => r.updated).length
-  const errors = results.filter(r => !r.updated && r.error !== 'No tracking number')
+  const errors = results.filter(r => !r.updated && r.error !== 'No EU tracking number')
 
   return NextResponse.json({ updated, errors, results })
 }
