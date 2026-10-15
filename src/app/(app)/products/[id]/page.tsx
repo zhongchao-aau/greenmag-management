@@ -23,13 +23,13 @@ export default async function ProductDetailPage({ params }: PageProps) {
     .from('profiles')
     .select('role')
     .eq('id', user.id)
-    .single()
+    .maybeSingle()
 
   const { data: product } = await supabase
     .from('products')
     .select('*')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!product) notFound()
 
