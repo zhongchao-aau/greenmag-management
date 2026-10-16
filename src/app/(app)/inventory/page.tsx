@@ -4,20 +4,13 @@ import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, EmptyState } from '@/components/ui/table'
 import { AlertTriangle, ShoppingCart, Truck, Wrench } from 'lucide-react'
-import { LOCATION_LABELS } from '@/lib/locations'
+import { formatQuantity } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
 const FILTER_TABS = [
   { value: '', label: 'All Items' },
   { value: 'low', label: '⚠️ Low Stock' },
   { value: 'zero', label: '🔴 Out of Stock' },
-]
-
-const TYPE_TABS = [
-  { value: '', label: 'All Types' },
-  { value: 'raw_material', label: 'Materials' },
-  { value: 'equipment', label: 'Equipment' },
-  { value: 'consumable', label: 'Consumables' },
 ]
 
 // Orders that are active (placed but not yet fully received)
@@ -34,19 +27,19 @@ const TYPE_LABELS: Record<string, { label: string; prefix: string; color: string
 }
 const TYPE_ORDER = ['raw_material', 'equipment', 'consumable']
 
-export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ filter?: string; type?: string }> }) {
-  const { filter: filterParam, type: typeParam } = await searchParams
+export default async function InventoryPage({ searchParams }: { searchParams: Promise<{ filter?: string }> }) {
+  const { filter: filterParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   if (!profile) redirect('/login')
 
   // Load ALL components (not just those with inventory) + inventory balances
   const { data: components } = await supabase
     .from('components')
-    .select('id, code, name, unit, low_stock_threshold, component_type, location, supplier:suppliers(name)')
+    .select('id, code, name, unit, low_stock_threshold, component_type, supplier:suppliers(name)')
     .eq('is_active', true)
     .order('code', { ascending: true })
 
@@ -101,29 +94,12 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
   }
 
   const activeFilter = filterParam ?? ''
-  const activeType = typeParam ?? ''
-
-  // URL helpers that preserve both params
-  function typeUrl(t: string) {
-    const params = new URLSearchParams()
-    if (t) params.set('type', t)
-    if (activeFilter) params.set('filter', activeFilter)
-    const qs = params.toString()
-    return `/inventory${qs ? '?' + qs : ''}`
-  }
-  function filterUrl(f: string) {
-    const params = new URLSearchParams()
-    if (activeType) params.set('type', activeType)
-    if (f) params.set('filter', f)
-    const qs = params.toString()
-    return `/inventory${qs ? '?' + qs : ''}`
-  }
 
   // Build enriched component list from the components table (shows all even with no inventory)
   const enriched = (components ?? []).map((c: {
     id: string; code: string; name: string; unit: string;
     low_stock_threshold: number | null; component_type: string | null;
-    location: string | null; supplier: { name: string } | null
+    supplier: { name: string } | null
   }) => {
     const qty = balanceMap[c.id] ?? 0
     const onOrder = onOrderMap[c.id] ?? 0
@@ -134,9 +110,8 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
     return { ...c, qty, onOrder, inTransit, reserved, isZero, isLow }
   })
 
-  // Apply filters
+  // Apply filter
   const filtered = enriched.filter(c => {
-    if (activeType && c.component_type !== activeType) return false
     if (activeFilter === 'low') return c.qty > 0 && c.low_stock_threshold != null && c.qty < c.low_stock_threshold
     if (activeFilter === 'zero') return c.qty <= 0
     return true
@@ -167,29 +142,11 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
         </Link>
       </div>
 
-      {/* Type filter row */}
-      <div className="flex gap-1 mb-0 border-b border-[var(--border)] overflow-x-auto">
-        {TYPE_TABS.map(tab => (
-          <Link
-            key={tab.value}
-            href={typeUrl(tab.value)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
-              activeType === tab.value
-                ? 'border-[var(--primary)] text-[var(--primary)]'
-                : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </div>
-
-      {/* Status filter row */}
       <div className="flex gap-1 mb-4 border-b border-[var(--border)] overflow-x-auto">
         {FILTER_TABS.map(tab => (
           <Link
             key={tab.value}
-            href={filterUrl(tab.value)}
+            href={tab.value ? `/inventory?filter=${tab.value}` : '/inventory'}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px whitespace-nowrap ${
               activeFilter === tab.value
                 ? 'border-[var(--primary)] text-[var(--primary)]'
@@ -216,7 +173,10 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             return (
               <div key={typeKey}>
                 <div className="flex items-center gap-2 mb-2">
-                  <h2 className={`text-sm font-semibold ${meta.color}`}>{meta.label}</h2>
+                  <span className={`text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[var(--secondary)] ${meta.color}`}>
+                    {meta.prefix}
+                  </span>
+                  <h2 className="text-sm font-semibold text-[var(--foreground)]">{meta.label}</h2>
                   <span className="text-xs text-[var(--muted-foreground)]">({rows.length})</span>
                 </div>
                 <div className="card overflow-hidden">
@@ -225,7 +185,6 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                       <TableRow>
                         <TableHead>Component</TableHead>
                         <TableHead>Supplier</TableHead>
-                        <TableHead>Location</TableHead>
                         <TableHead>Unit</TableHead>
                         <TableHead className="text-right">In Stock</TableHead>
                         <TableHead className="text-right">
@@ -249,7 +208,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                     </TableHeader>
                     <TableBody>
                       {rows.map(c => (
-                        <TableRow key={c.id} className={c.isLow ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
+                        <TableRow key={c.id} className={c.isZero ? 'bg-red-50 dark:bg-red-950/20' : c.isLow ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
                           <TableCell>
                             <div>
                               <Link href={`/components/${c.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
@@ -261,30 +220,27 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                           <TableCell className="text-sm text-[var(--muted-foreground)]">
                             {(c.supplier as { name: string } | null)?.name ?? '—'}
                           </TableCell>
-                          <TableCell className="text-sm text-[var(--muted-foreground)]">
-                            {c.location ? (LOCATION_LABELS[c.location] ?? c.location) : '—'}
-                          </TableCell>
                           <TableCell className="text-sm">{c.unit}</TableCell>
                           <TableCell className={`text-right text-sm font-medium ${c.isZero ? 'text-red-600' : c.isLow ? 'text-amber-600' : ''}`}>
-                            {c.qty}
+                            {formatQuantity(c.qty)}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.onOrder > 0
-                              ? <span className="text-blue-600 dark:text-blue-400 font-medium">+{c.onOrder}</span>
+                              ? <span className="text-blue-600 dark:text-blue-400 font-medium">+{formatQuantity(c.onOrder)}</span>
                               : <span className="text-[var(--muted-foreground)]">—</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.inTransit > 0
-                              ? <span className="text-indigo-600 dark:text-indigo-400 font-medium">+{c.inTransit}</span>
+                              ? <span className="text-indigo-600 dark:text-indigo-400 font-medium">+{formatQuantity(c.inTransit)}</span>
                               : <span className="text-[var(--muted-foreground)]">—</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.reserved > 0
-                              ? <span className="text-orange-600 dark:text-orange-400 font-medium">{c.reserved}</span>
+                              ? <span className="text-orange-600 dark:text-orange-400 font-medium">{formatQuantity(c.reserved)}</span>
                               : <span className="text-[var(--muted-foreground)]">—</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm text-[var(--muted-foreground)]">
-                            {c.low_stock_threshold != null ? c.low_stock_threshold : '—'}
+                            {c.low_stock_threshold != null ? formatQuantity(c.low_stock_threshold) : '—'}
                           </TableCell>
                           <TableCell>
                             {c.isZero ? (
@@ -309,4 +265,4 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       )}
     </div>
   )
-   }
+}
