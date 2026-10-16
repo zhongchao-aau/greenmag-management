@@ -3,14 +3,10 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { ArrowLeft, ShoppingCart } from 'lucide-react'
-import {
-  orderStatusClass, ORDER_STATUS_LABELS,
-  shipmentStatusClass, SHIPMENT_STATUS_LABELS,
-  formatDate, formatRelative
-} from '@/lib/utils'
+import { orderStatusClass, ORDER_STATUS_LABELS, formatDate, formatRelative, formatQuantity, formatCurrency } from '@/lib/utils'
 import { OrderActions } from './order-actions'
-import { EditOrderItems } from './edit-order-items'
 export const dynamic = 'force-dynamic'
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -19,22 +15,30 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle()
+  const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single()
   if (!profile) redirect('/login')
   const isAdmin = profile.role === 'admin'
 
-  const { data: order, error: orderError } = await supabase
+  const { data: order } = await supabase
     .from('purchase_orders')
     .select(`
       *,
-      supplier:suppliers(id, name, contact_name, contact_email),
-      created_by_profile:profiles!created_by(full_name),
-      request:purchase_requests(id, code, purpose)
+      supplier:suppliers(id, name, contact_name, contact_email)
     `)
     .eq('id', id)
-    .maybeSingle()
+    .single()
 
-  if (orderError || !order) notFound()
+  if (!order) notFound()
+
+  // Items: admin sees cost, user sees order_items_public view
+  const itemsView = isAdmin ? 'order_items' : 'order_items_public'
+  const { data: items } = await supabase
+    .from(itemsView)
+    .select(isAdmin
+      ? 'id, quantity, unit_price, currency, total_cost, notes, component:components(id, code, name, unit)'
+      : 'id, quantity, notes, component:components(id, code, name, unit)'
+    )
+    .eq('order_id', id)
 
   const { data: shipments } = await supabase
     .from('shipments')
@@ -48,9 +52,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     .order('created_at', { ascending: true })
 
   const canTransition = isAdmin
-  // Statuses where shipment creation makes sense (order placed but not yet fully received)
-  const canCreateShipment = isAdmin && (shipments ?? []).length === 0 &&
-    ['ordered', 'confirmed', 'partially_shipped', 'shipped'].includes(order.status)
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -87,13 +88,63 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   <Link href={`/requests/${(order.request as { id: string; code: string }).id}`} className="text-[var(--primary)] hover:underline">
                     {(order.request as { id: string; code: string; purpose: string | null }).code}
                   </Link>
-                  {(order.request as { purpose: string | null }).purpose && ` · ${(order.request as { purpose: string | null }).purpose}`}
+                  y(order.request as { purpose: string | null }).purpose && ` · ${(order.request as { purpose: string | null }).purpose}`}
                 </p>
               )}
             </CardHeader>
           </Card>
 
-          <EditOrderItems orderId={id} isAdmin={isAdmin} />
+          {/* Items table */}
+          <Card>
+            <CardHeader><CardTitle>Order Items</CardTitle></CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Component</TableHead>
+                    <TableHead>Quantity</TableHead>
+                    {isAdmin && <TableHead>Unit Price</TableHead>}
+                    {isAdmin && <TableHead>Total</TableHead>}
+                    <TableHead>Notes</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(items ?? []).map((item: {
+                    id: string; quantity: number;
+                    unit_price?: number | null; currency?: string | null; total_cost?: number | null;
+                    notes: string | null; component: { id: string; code: string; name: string; unit: string } | null
+                  }) => (
+                    <TableRow key={item.id}>
+                      <TableCell>
+                        {item.component ? (
+                          <div>
+                            <Link href={`/components/${item.component.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
+                              {item.component.name}
+                            </Link>
+                            <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
+                          </div>
+                        ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-sm font-medium">
+                        {formatQuantity(item.quantity)} {item.component?.unit}
+                      </TableCell>
+                      {isAdmin && (
+                        <TableCell className="text-sm">
+                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : '—'}
+                        </TableCell>
+                      )}
+                      {isAdmin && (
+                        <TableCell className="text-sm font-medium">
+                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : '—'}
+                        </TableCell>
+                      )}
+                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
 
           {/* Linked shipments */}
           {(shipments ?? []).length > 0 && (
@@ -115,9 +166,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                       <span className="font-mono text-xs text-[var(--muted-foreground)]">{s.code}</span>
                       <div className="flex items-center gap-3">
                         <span className="text-xs text-[var(--muted-foreground)]">Expected {formatDate(s.expected_delivery)}</span>
-                        <Badge className={shipmentStatusClass(s.status as never)}>
-                          {SHIPMENT_STATUS_LABELS[s.status as never] ?? s.status}
-                        </Badge>
+                        <Badge className="badge-draft">{s.status}</Badge>
                       </div>
                     </Link>
                   ))}
@@ -154,14 +203,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             <OrderActions orderId={id} status={order.status} />
           )}
 
-          {canCreateShipment && (
+          {isAdmin && (shipments ?? []).length === 0 && ['sent', 'confirmed'].includes(order.status) && (
             <Card>
               <CardContent className="pt-4">
-                <Link
-                  href={`/shipments/new?order=${id}`}
-                  className="block w-full text-sm text-[var(--primary)] hover:underline text-left"
-                >
-                  + Create Shipment for this Order
+                <Link href={`/shipments/new?order=${id}`} className="block">
+                  <button className="w-full text-sm text-[var(--primary)] hover:underline text-left">+ Create Shipment for this Order</button>
                 </Link>
               </CardContent>
             </Card>
@@ -182,17 +228,6 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <div className="pt-2 border-t border-[var(--border)]">
                   <p className="text-xs text-[var(--muted-foreground)] mb-1">Notes</p>
                   <p className="text-sm">{order.notes}</p>
-                </div>
-              )}
-              {order.supplier && (order.supplier as { contact_email: string | null }).contact_email && (
-                <div className="pt-2 border-t border-[var(--border)]">
-                  <p className="text-xs text-[var(--muted-foreground)] mb-1">Supplier Contact</p>
-                  <a
-                    href={`mailto:${(order.supplier as { contact_email: string }).contact_email}`}
-                    className="text-sm text-[var(--primary)] hover:underline"
-                  >
-                    {(order.supplier as { contact_email: string }).contact_email}
-                  </a>
                 </div>
               )}
             </CardContent>
