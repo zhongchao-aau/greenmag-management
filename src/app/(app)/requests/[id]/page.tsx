@@ -93,7 +93,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                   </div>
                   <CardTitle className="text-lg">{request.purpose ?? 'No description'}</CardTitle>
                   <p className="text-sm text-[var(--muted-foreground)] mt-1">
-                    Requested by <span className="font-medium">{(request.requester as { full_name: string } | null)?.full_name}</span> · {formatRelative(request.created_at)}
+                    Requested by <span className="font-medium">{(request.requester as { full_name: string } | null)?.full_name}</span> Â· {formatRelative(request.created_at)}
                   </p>
                 </div>
               </div>
@@ -109,7 +109,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
               <CardContent className="text-sm space-y-2">
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Product</span>
-                  <span className="font-medium">{variant.products?.name ?? '—'}</span>
+                  <span className="font-medium">{variant.products?.name ?? 'â'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--muted-foreground)]">Variant</span>
@@ -149,12 +149,12 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                               </Link>
                               <p className="text-xs text-[var(--muted-foreground)] font-mono">{item.component.code}</p>
                             </div>
-                          ) : <span className="text-[var(--muted-foreground)]">—</span>}
+                          ) : <span className="text-[var(--muted-foreground)]">â</span>}
                         </TableCell>
                         <TableCell className="text-sm font-medium">
-                          {formatQuantity(item.quantity_requested)} {item.component?.unit}
+                          {formatQuantity(item.quantity_requested, item.component?.unit ?? 'pcs')}
                         </TableCell>
-                        <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? 'â'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -188,9 +188,9 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                               </Link>
                               <p className="text-xs text-[var(--muted-foreground)] font-mono">{item.component.code}</p>
                             </div>
-                          ) : <span className="text-[var(--muted-foreground)]">—</span>}
+                          ) : <span className="text-[var(--muted-foreground)]">â</span>}
                         </TableCell>
-                        <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? 'â'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -210,7 +210,7 @@ export default async function RequestDetailPage({ params }: { params: Promise<{ 
                       <div>
                         <p className="text-sm">{event.description}</p>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {(event.performer as { full_name: string } | null)?.full_name} · {formatRelative(event.created_at)}
+                          {(event.performer as { full_name: string } | null)?.full_name} Â· {formatRelative(event.created_at)}
                         </p>
                       </div>
                     </div>
