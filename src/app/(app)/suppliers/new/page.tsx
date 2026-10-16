@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -10,6 +10,16 @@ import { ArrowLeft } from 'lucide-react'
 
 export default function NewSupplierPage() {
   const router = useRouter()
+  useEffect(() => {
+    async function checkAdmin() {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (!prof || prof.role !== 'admin') router.push('/dashboard')
+    }
+    checkAdmin()
+  }, [router])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [form, setForm] = useState({
