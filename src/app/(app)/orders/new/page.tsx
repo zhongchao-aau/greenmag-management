@@ -40,6 +40,10 @@ export default function NewOrderPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (!prof || prof.role !== 'admin') { router.push('/dashboard'); return }
       const [{ data: s }, { data: c }] = await Promise.all([
         supabase.from('suppliers').select('id, name').eq('is_active', true).order('name'),
         supabase.from('components').select('id, code, name, unit').eq('is_active', true).order('code'),
@@ -141,7 +145,7 @@ export default function NewOrderPage() {
         {linkedRequest && (
           <p className="text-sm text-[var(--muted-foreground)] mt-1">
             From request <Link href={`/requests/${linkedRequest.id}`} className="text-[var(--primary)] hover:underline">{linkedRequest.code}</Link>
-            {linkedRequest.purpose && ` · ${linkedRequest.purpose}`}
+            {linkedRequest.purpose && ` Â· ${linkedRequest.purpose}`}
           </p>
         )}
       </div>
@@ -157,7 +161,7 @@ export default function NewOrderPage() {
                 value={form.supplier_id}
                 onChange={e => setField('supplier_id', e.target.value)}
               >
-                <option value="">— Select supplier —</option>
+                <option value="">â Select supplier â</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
@@ -178,7 +182,7 @@ export default function NewOrderPage() {
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle>Order Items</CardTitle>
-                <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Unit prices are confidential — not visible to regular users.</p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Unit prices are confidential â not visible to regular users.</p>
               </div>
               <Button type="button" variant="outline" size="sm" onClick={addItem}><Plus className="w-4 h-4 mr-1.5" />Add Item</Button>
             </div>
@@ -201,8 +205,8 @@ export default function NewOrderPage() {
                       className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
                       value={item.component_id} onChange={e => setItem(index, 'component_id', e.target.value)} required
                     >
-                      <option value="">— Select —</option>
-                      {components.map(c => <option key={c.id} value={c.id}>{c.code} · {c.name}</option>)}
+                      <option value="">â Select â</option>
+                      {components.map(c => <option key={c.id} value={c.id}>{c.code} Â· {c.name}</option>)}
                     </select>
                   </div>
                   <div className="col-span-2">
@@ -228,7 +232,7 @@ export default function NewOrderPage() {
                     </select>
                   </div>
                   <div className="col-span-1">
-                    <p className="text-xs text-[var(--muted-foreground)] text-center">{item.unit || '—'}</p>
+                    <p className="text-xs text-[var(--muted-foreground)] text-center">{item.unit || 'â'}</p>
                   </div>
                   <div className="col-span-1 flex justify-end">
                     {items.length > 1 && (
