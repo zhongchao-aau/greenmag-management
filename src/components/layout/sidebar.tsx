@@ -1,11 +1,10 @@
 'use client'
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
-  FlaskConical, Building2, LogOut, Factory, TestTube2,
-  Layers, Wrench, Archive
+  FlaskConical, Boxes, Building2, LogOut, Magnet, ClipboardCheck, Factory, TestTube2
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -17,23 +16,17 @@ const userNav = [
   { href: '/orders', label: 'Orders', icon: ShoppingCart },
   { href: '/shipments', label: 'Shipments', icon: Truck },
   { href: '/inventory', label: 'Inventory', icon: Package },
+  { href: '/usage/new', label: 'Record Usage', icon: FlaskConical },
   { href: '/samples', label: 'Samples', icon: TestTube2 },
-  { href: '/usage', label: 'Usage Report', icon: FlaskConical },
 ]
 
-type NavItem = {
-  href: string
-  label: string
-  icon: React.ComponentType<{ className?: string }>
-  basePath?: string
-  typeParam?: string
-}
+const adminOnlyNav = [
+  { href: '/receiving', label: 'Receiving', icon: ClipboardCheck },
+]
 
-const masterNav: NavItem[] = [
+const masterNav = [
   { href: '/products', label: 'Products', icon: Factory },
-  { href: '/components?type=raw_material', basePath: '/components', typeParam: 'raw_material', label: 'Materials', icon: Layers },
-  { href: '/components?type=equipment', basePath: '/components', typeParam: 'equipment', label: 'Equipment', icon: Wrench },
-  { href: '/components?type=consumable', basePath: '/components', typeParam: 'consumable', label: 'Consumables', icon: Archive },
+  { href: '/components', label: 'Components', icon: Boxes },
   { href: '/suppliers', label: 'Suppliers', icon: Building2 },
 ]
 
@@ -43,7 +36,6 @@ interface SidebarProps {
 
 export function Sidebar({ profile }: SidebarProps) {
   const pathname = usePathname()
-  const searchParams = useSearchParams()
   const router = useRouter()
   const isAdmin = profile.role === 'admin'
 
@@ -54,24 +46,23 @@ export function Sidebar({ profile }: SidebarProps) {
     router.refresh()
   }
 
-  function isActive(item: NavItem) {
-    if (item.basePath && item.typeParam) {
-      return pathname === item.basePath && searchParams.get('type') === item.typeParam
-    }
-    return pathname === item.href || pathname.startsWith(item.href + '/')
-  }
-
   return (
     <aside className="flex flex-col w-60 min-h-screen bg-[var(--card)] border-r border-[var(--border)] shrink-0">
       {/* Logo */}
-      <div className="flex items-center px-5 py-4 border-b border-[var(--border)]">
-        <img src="/greenmag-logo.png" alt="GreenMag" style={{height: '28px', width: 'auto', maxWidth: '160px'}} />
+      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[var(--border)]">
+        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--primary)]">
+          <Magnet className="w-4 h-4 text-white" />
+        </div>
+        <div>
+          <p className="text-sm font-bold text-[var(--foreground)] leading-tight">GreenMag</p>
+          <p className="text-xs text-[var(--muted-foreground)]">Procurement</p>
+        </div>
       </div>
 
       {/* Navigation */}
       <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
         {userNav.map(item => {
-          const active = isActive(item)
+          const active = pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.href}
@@ -89,31 +80,46 @@ export function Sidebar({ profile }: SidebarProps) {
           )
         })}
 
-        {isAdmin && (
-          <>
-            <div className="pt-4 pb-1 px-3">
-              <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
-            </div>
-            {masterNav.map(item => {
-              const active = isActive(item)
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                    active
-                      ? 'bg-[var(--primary)] text-white'
-                      : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
-                  )}
-                >
-                  <item.icon className="w-4 h-4 shrink-0" />
-                  {item.label}
-                </Link>
-              )
-            })}
-          </>
-        )}
+        {isAdmin && adminOnlyNav.map(item => {
+          const active = pathname === item.href || pathname.startsWith(item.href.replace('/new', '') + '/')
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                active
+                  ? 'bg-[var(--primary)] text-white'
+                  : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
+              )}
+            >
+              <item.icon className="w-4 h-4 shrink-0" />
+              {item.label}
+            </Link>
+          )
+        })}
+
+        <div className="pt-4 pb-1 px-3">
+          <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
+        </div>
+        {masterNav.map(item => {
+          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
+                active
+                  ? 'bg-[var(--primary)] text-white'
+                  : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
+              )}
+            >
+              <item.icon className="w-4 h-4 shrink-0" />
+              {item.label}
+            </Link>
+          )
+        })}
       </nav>
 
       {/* User footer */}
