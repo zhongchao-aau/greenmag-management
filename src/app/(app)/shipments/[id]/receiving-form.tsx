@@ -345,26 +345,26 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                         <p className="text-xs font-mono text-[var(--muted-foreground)]">{si.component!.code}</p>
                       </td>
                       <td className="py-2 text-right text-[var(--muted-foreground)]">
-                        {formatQuantity(si.quantity_shipped)} {si.component!.unit}
+                        {formatQuantity(si.quantity_shipped, si.component!.unit)}
                       </td>
                       <td className="py-2 text-right">
-                        {ri ? `${formatQuantity(ri.quantity_received)} ${si.component!.unit}` : '—'}
+                        {ri ? formatQuantity(ri.quantity_received, si.component!.unit) : 'â'}
                       </td>
                       <td className="py-2 text-right">
                         {ii ? (
                           <span className="flex items-center justify-end gap-1 text-green-700">
                             <CheckCircle className="w-3 h-3" />
-                            {formatQuantity(ii.quantity_accepted)} {si.component!.unit}
+                            {formatQuantity(ii.quantity_accepted, si.component!.unit)}
                           </span>
-                        ) : '—'}
+                        ) : 'â'}
                       </td>
                       <td className="py-2 text-right">
                         {ii && ii.quantity_rejected > 0 ? (
                           <span className="flex items-center justify-end gap-1 text-red-700">
                             <XCircle className="w-3 h-3" />
-                            {formatQuantity(ii.quantity_rejected)} {si.component!.unit}
+                            {formatQuantity(ii.quantity_rejected, si.component!.unit)}
                           </span>
-                        ) : '—'}
+                        ) : 'â'}
                       </td>
                       <td className="py-2 text-right">
                         {ii && <ResultBadge result={ii.result} />}
@@ -419,7 +419,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                   <th className="text-left text-xs text-[var(--muted-foreground)] font-medium px-3 py-2">Component</th>
                   <th className="text-right text-xs text-[var(--muted-foreground)] font-medium px-3 py-2">Ordered</th>
                   <th className="text-right text-xs text-[var(--muted-foreground)] font-medium px-3 py-2 min-w-[110px]">Received</th>
-                  <th className="text-right text-xs text-green-600 font-medium px-3 py-2 min-w-[110px]">Accepted → Stock</th>
+                  <th className="text-right text-xs text-green-600 font-medium px-3 py-2 min-w-[110px]">Accepted âÂ Stock</th>
                   <th className="text-right text-xs text-red-600 font-medium px-3 py-2">Rejected</th>
                 </tr>
               </thead>
@@ -437,7 +437,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                         <p className="text-xs font-mono text-[var(--muted-foreground)]">{si.component!.code}</p>
                       </td>
                       <td className="px-3 py-2 text-right text-[var(--muted-foreground)] whitespace-nowrap">
-                        {formatQuantity(si.quantity_shipped)}&nbsp;{si.component!.unit}
+                        {formatQuantity(si.quantity_shipped, si.component!.unit)}
                       </td>
                       <td className="px-3 py-2 text-right">
                         <div className="flex items-center justify-end gap-1">
@@ -475,7 +475,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right text-red-600 whitespace-nowrap">
-                        {recv > 0 && rejected > 0 ? `${formatQuantity(rejected)} ${si.component!.unit}` : '—'}
+                        {recv > 0 && rejected > 0 ? formatQuantity(rejected, si.component!.unit) : 'â'}
                       </td>
                     </tr>
                   )
@@ -515,7 +515,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
               disabled={submitting}
               className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
             >
-              {submitting ? 'Saving…' : receipt ? 'Update Record' : 'Save Receiving Record'}
+              {submitting ? 'Savingâ¦' : receipt ? 'Update Record' : 'Save Receiving Record'}
             </button>
           </div>
         </form>
