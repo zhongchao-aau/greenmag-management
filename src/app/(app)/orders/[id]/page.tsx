@@ -88,7 +88,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   <Link href={`/requests/${(order.request as { id: string; code: string }).id}`} className="text-[var(--primary)] hover:underline">
                     {(order.request as { id: string; code: string; purpose: string | null }).code}
                   </Link>
-                  y(order.request as { purpose: string | null }).purpose && ` · ${(order.request as { purpose: string | null }).purpose}`}
+                  {(order.request as { purpose: string | null }).purpose && ` · ${(order.request as { purpose: string | null }).purpose}`}
                 </p>
               )}
             </CardHeader>
