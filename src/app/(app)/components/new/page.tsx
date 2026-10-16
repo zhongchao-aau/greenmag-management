@@ -22,11 +22,15 @@ export default function NewComponentPage() {
   useEffect(() => {
     async function loadSuppliers() {
       const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+      const { data: prof } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      if (!prof || prof.role !== 'admin') { router.push('/dashboard'); return }
       const { data } = await supabase.from('suppliers').select('id, name').eq('is_active', true).order('name')
       setSuppliers(data ?? [])
     }
     loadSuppliers()
-  }, [])
+  }, [router])
 
   function set(field: string, value: string) {
     setForm(f => ({ ...f, [field]: value }))
@@ -125,7 +129,7 @@ export default function NewComponentPage() {
                 value={form.supplier_id}
                 onChange={e => set('supplier_id', e.target.value)}
               >
-                <option value="">— No supplier selected —</option>
+                <option value="">â No supplier selected â</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <p className="text-xs text-[var(--muted-foreground)] mt-1">Can be set later once supplier is confirmed.</p>
