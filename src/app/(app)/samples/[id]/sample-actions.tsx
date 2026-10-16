@@ -1,118 +1,52 @@
 'use client'
-
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
-const STATUSES = [
-  { value: 'approved_to_build', label: 'Approved to Build' },
-  { value: 'manufacturing', label: 'Manufacturing' },
-  { value: 'in_test', label: 'In Test' },
-  { value: 'failure_analysis', label: 'Failure Analysis' },
-  { value: 'passed', label: 'Passed' },
-  { value: 'retired', label: 'Retired' },
-  { value: 'scrapped', label: 'Scrapped' },
-]
-
-function toLocalDatetimeValue(date: Date): string {
-  const offset = date.getTimezoneOffset()
-  const local = new Date(date.getTime() - offset * 60000)
-  return local.toISOString().slice(0, 16)
+interface Transition {
+  label: string
+  next: string
+  variant?: string
 }
 
-interface SampleActionsProps {
-  sampleId: string
-  currentStatus: string
-}
-
-export default function SampleActions({ sampleId, currentStatus }: SampleActionsProps) {
-  const [selectedStatus, setSelectedStatus] = useState(currentStatus)
-  const [notes, setNotes] = useState('')
-  const [changedAt, setChangedAt] = useState(() => toLocalDatetimeValue(new Date()))
-  const [loading, setLoading] = useState(false)
+export function SampleActions({ sampleId, transitions }: { sampleId: string; transitions: Transition[] }) {
   const router = useRouter()
-  const supabase = createClient()
+  const [loading, setLoading] = useState<string | null>(null)
+  const [error, setError] = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault()
-    if (selectedStatus === currentStatus) return
-    setLoading(true)
-
-    const { data: { user } } = await supabase.auth.getUser()
-    const changedAtUTC = new Date(changedAt).toISOString()
-
-    const { error: updateError } = await supabase
+  async function handleTransition(next: string) {
+    setLoading(next)
+    setError('')
+    const supabase = createClient()
+    const { error: err } = await supabase
       .from('samples')
-      .update({ status: selectedStatus, updated_at: new Date().toISOString() })
+      .update({ status: next })
       .eq('id', sampleId)
-
-    if (updateError) {
-      alert('Error updating status: ' + updateError.message)
-      setLoading(false)
-      return
-    }
-
-    await supabase.from('sample_status_history').insert({
-      sample_id: sampleId,
-      status: selectedStatus,
-      changed_by: user?.email ?? null,
-      notes: notes.trim() || null,
-      changed_at: changedAtUTC,
-    })
-
-    setNotes('')
-    setChangedAt(toLocalDatetimeValue(new Date()))
-    setLoading(false)
+    if (err) { setError(err.message); setLoading(null); return }
     router.refresh()
+    setLoading(null)
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">New Status</label>
-        <select
-          value={selectedStatus}
-          onChange={e => setSelectedStatus(e.target.value)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        >
-          {STATUSES.map(s => (
-            <option key={s.value} value={s.value} disabled={s.value === currentStatus}>
-              {s.label}{s.value === currentStatus ? ' (current)' : ''}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Date &amp; Time</label>
-        <input
-          type="datetime-local"
-          value={changedAt}
-          onChange={e => setChangedAt(e.target.value)}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-        />
-      </div>
-
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          Notes <span className="text-gray-400 font-normal">(optional)</span>
-        </label>
-        <textarea
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          rows={2}
-          placeholder="Add notes about this status change..."
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
-        />
-      </div>
-
-      <button
-        type="submit"
-        disabled={loading || selectedStatus === currentStatus}
-        className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
-        {loading ? 'Updating…' : 'Update Status'}
-      </button>
-    </form>
+    <Card>
+      <CardHeader><CardTitle className="text-sm">Actions</CardTitle></CardHeader>
+      <CardContent className="space-y-2">
+        {transitions.map(t => (
+          <Button
+            key={t.next}
+            variant={t.variant === 'destructive' ? 'outline' : 'default'}
+            className={`w-full text-sm ${t.variant === 'destructive' ? 'text-red-600 border-red-200 hover:bg-red-50' : ''}`}
+            loading={loading === t.next}
+            disabled={loading !== null}
+            onClick={() => handleTransition(t.next)}
+          >
+            {t.label}
+          </Button>
+        ))}
+        {error && <p className="text-xs text-[var(--destructive)] mt-1">{error}</p>}
+      </CardContent>
+    </Card>
   )
 }
