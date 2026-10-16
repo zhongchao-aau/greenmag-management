@@ -40,14 +40,13 @@ export default function LoginPage() {
         <div className="card p-6">
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
             <Input label="Email address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@energy.aau.dk" required autoComplete="email" />
-            <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" required autoComplete="current-password" />
+            <Input label="Password" type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="â¢â¢â¢â¢â¢â¢â¢â¢" required autoComplete="current-password" />
             {error && (<p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>)}
             <Button type="submit" loading={loading} className="w-full mt-1">Sign in</Button>
           </form>
         </div>
         <p className="text-center text-xs text-[var(--muted-foreground)] mt-4">
-          Don&apos;t have an account?{' '}
-          <Link href="/signup" className="text-[var(--primary)] hover:underline">Create one</Link>
+          Access is by invitation only. Contact your administrator.
         </p>
       </div>
     </div>
