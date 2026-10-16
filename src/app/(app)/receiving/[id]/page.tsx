@@ -48,9 +48,9 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
   const inspection = inspections?.[0] ?? null
 
   function resultBadge(result: string) {
-    if (result === 'pass') return <Badge className="badge-approved text-xs">✅ Pass</Badge>
-    if (result === 'fail') return <Badge className="badge-cancelled text-xs">❌ Fail</Badge>
-    return <Badge className="badge-under-review text-xs">⚠️ Partial</Badge>
+    if (result === 'pass') return <Badge className="badge-approved text-xs">â Pass</Badge>
+    if (result === 'fail') return <Badge className="badge-cancelled text-xs">â Fail</Badge>
+    return <Badge className="badge-under-review text-xs">â ï¸ Partial</Badge>
   }
 
   return (
@@ -93,7 +93,7 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
                   <Card className="bg-green-50 border-green-200">
                     <CardContent className="pt-4 text-center">
                       <p className="text-2xl font-bold text-green-700">{formatQuantity(totalAccepted)}</p>
-                      <p className="text-xs text-green-600 mt-0.5">Units Accepted → Inventory</p>
+                      <p className="text-xs text-green-600 mt-0.5">Units Accepted â Inventory</p>
                     </CardContent>
                   </Card>
                   <Card className="bg-red-50 border-red-200">
@@ -136,7 +136,7 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
                       </div>
                     ) : <span className="text-sm text-[var(--muted-foreground)]">Unknown component</span>}
                   </div>
-                  <span className="text-sm font-medium">{formatQuantity(item.quantity_received)} {item.component?.unit}</span>
+                  <span className="text-sm font-medium">{formatQuantity(item.quantity_received, item.component?.unit ?? 'pcs')}</span>
                 </div>
               ))}
             </div>
@@ -189,18 +189,18 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
                   <div className="grid grid-cols-3 gap-3 text-sm mb-2">
                     <div>
                       <p className="text-xs text-[var(--muted-foreground)] mb-0.5">Inspected</p>
-                      <p className="font-medium">{formatQuantity(item.quantity_inspected)} {item.component?.unit}</p>
+                      <p className="font-medium">{formatQuantity(item.quantity_inspected, item.component?.unit ?? 'pcs')}</p>
                     </div>
                     <div>
-                      <p className="text-xs text-green-600 mb-0.5">Accepted → Inventory</p>
+                      <p className="text-xs text-green-600 mb-0.5">Accepted â Inventory</p>
                       <p className="font-medium text-green-700 flex items-center gap-1">
-                        <CheckCircle className="w-3.5 h-3.5" />{formatQuantity(item.quantity_accepted)} {item.component?.unit}
+                        <CheckCircle className="w-3.5 h-3.5" />{formatQuantity(item.quantity_accepted, item.component?.unit ?? 'pcs')}
                       </p>
                     </div>
                     <div>
                       <p className="text-xs text-red-600 mb-0.5">Rejected</p>
                       <p className="font-medium text-red-700 flex items-center gap-1">
-                        <XCircle className="w-3.5 h-3.5" />{formatQuantity(item.quantity_rejected)} {item.component?.unit}
+                        <XCircle className="w-3.5 h-3.5" />{formatQuantity(item.quantity_rejected, item.component?.unit ?? 'pcs')}
                       </p>
                     </div>
                   </div>
@@ -225,7 +225,7 @@ export default async function ReceiptDetailPage({ params }: { params: Promise<{ 
 
         {/* Inventory confirmation */}
         <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3">
-          <p className="text-sm text-green-800 font-medium">✅ Inventory Updated</p>
+          <p className="text-sm text-green-800 font-medium">â Inventory Updated</p>
           <p className="text-xs text-green-700 mt-0.5">Accepted quantities have been posted to inventory as receipt transactions.</p>
         </div>
       </div>
