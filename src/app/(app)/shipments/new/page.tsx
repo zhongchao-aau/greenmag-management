@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { ArrowLeft, Plus, Minus } from 'lucide-react'
 import Link from 'next/link'
 
-// ─── Location data ────────────────────────────────────────────────────────────
+// âââ Location data ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 const PREFERRED_LOCS = [
   { value: 'china',      label: 'China' },
   { value: 'dk_aalborg', label: 'Aalborg, Denmark' },
@@ -101,11 +101,11 @@ function LocationSelect({ id, value, onChange, placeholder = 'Not specified' }: 
   return (
     <select id={id} value={value} onChange={e => onChange(e.target.value)}
       className="w-full border border-[var(--border)] rounded-md px-3 py-2 text-sm bg-[var(--background)]">
-      <option value="">{'— ' + placeholder + ' —'}</option>
+      <option value="">{'â ' + placeholder + ' â'}</option>
       <optgroup label="Preferred">
         {PREFERRED_LOCS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
       </optgroup>
-      <optgroup label="China — by Province / Region">
+      <optgroup label="China â by Province / Region">
         {CHINA_PROVINCES.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
       </optgroup>
       <optgroup label="Europe & World">
@@ -165,7 +165,19 @@ export default function NewShipmentPage() {
           .order('name'),
       ])
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      setOrders((ordersRes.data ?? []) as any)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let orderData = (ordersRes.data ?? []) as any[]
+      if (preOrderId && !orderData.find((o: any) => o.id === preOrderId)) {
+        const { data: preOrder } = await supabase
+          .from('purchase_orders')
+          .select('id, code, status, supplier:suppliers(name)')
+          .eq('id', preOrderId)
+          .single()
+        if (preOrder) {
+          orderData = [(preOrder as any), ...orderData]
+        }
+      }
+      setOrders(orderData as any)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       setSamples((samplesRes.data ?? []) as any)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -248,9 +260,9 @@ export default function NewShipmentPage() {
   }
 
   const TYPES = [
-    { value: 'component_order' as ShipmentType,   label: 'Component Order',   emoji: '📦' },
-    { value: 'sample_transfer' as ShipmentType,   label: 'Sample Transfer',   emoji: '🧪' },
-    { value: 'material_transfer' as ShipmentType, label: 'Material Transfer', emoji: '🏭' },
+    { value: 'component_order' as ShipmentType,   label: 'Component Order',   emoji: 'ð¦' },
+    { value: 'sample_transfer' as ShipmentType,   label: 'Sample Transfer',   emoji: 'ð§ª' },
+    { value: 'material_transfer' as ShipmentType, label: 'Material Transfer', emoji: 'ð­' },
   ]
 
   return (
@@ -292,7 +304,7 @@ export default function NewShipmentPage() {
 
         {isFromChina && (
           <p className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded-md px-3 py-2">
-            Origin is in China — two tracking legs will be recorded (China leg + EU/international leg).
+            Origin is in China â two tracking legs will be recorded (China leg + EU/international leg).
           </p>
         )}
 
@@ -320,7 +332,7 @@ export default function NewShipmentPage() {
 
         {shipmentType === 'component_order' && (
           <Card>
-            <CardHeader><CardTitle>Linked Orders (open only)</CardTitle></CardHeader>
+            <CardHeader><CardTitle>Linked Orders</CardTitle></CardHeader>
             <CardContent>
               {orders.length === 0 ? (
                 <p className="text-sm text-[var(--muted-foreground)]">No open orders found.</p>
@@ -357,7 +369,7 @@ export default function NewShipmentPage() {
                       {s.product_variants && (
                         <span className="text-sm text-[var(--muted-foreground)]">
                           {s.product_variants.name}
-                          {s.product_variants.products ? ' · ' + s.product_variants.products.name : ''}
+                          {s.product_variants.products ? ' Â· ' + s.product_variants.products.name : ''}
                         </span>
                       )}
                       <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-[var(--accent)] capitalize">{s.status.replace(/_/g, ' ')}</span>
@@ -461,7 +473,7 @@ export default function NewShipmentPage() {
 
         <div className="flex gap-3 justify-end pb-8">
           <Link href="/shipments"><Button type="button" variant="outline">Cancel</Button></Link>
-          <Button type="submit" disabled={submitting}>{submitting ? 'Creating…' : 'Create Shipment'}</Button>
+          <Button type="submit" disabled={submitting}>{submitting ? 'Creatingâ¦' : 'Create Shipment'}</Button>
         </div>
 
       </form>
