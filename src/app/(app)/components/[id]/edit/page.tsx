@@ -5,7 +5,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { LocationSelect } from '@/components/ui/location-select'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 
@@ -27,7 +26,7 @@ export default function EditComponentPage() {
   const [form, setForm] = useState({
     name: '', description: '', unit: 'pcs', supplier_id: '',
     manufacturer_part_number: '', low_stock_threshold: '', notes: '', is_active: true,
-    component_type: 'raw_material', location: 'dk_aalborg'
+    component_type: 'raw_material'
   })
 
   useEffect(() => {
@@ -38,14 +37,11 @@ export default function EditComponentPage() {
         supabase.from('suppliers').select('id, name').eq('is_active', true).order('name'),
       ])
       if (c) {
-        // migration guard: old 'device' enum value maps to new 'equipment'
-        const componentType = c.component_type === 'device' ? 'equipment' : (c.component_type ?? 'raw_material')
         setForm({
           name: c.name ?? '', description: c.description ?? '', unit: c.unit ?? 'pcs',
           supplier_id: c.supplier_id ?? '', manufacturer_part_number: c.manufacturer_part_number ?? '',
           low_stock_threshold: c.low_stock_threshold?.toString() ?? '', notes: c.notes ?? '',
-          is_active: c.is_active ?? true, component_type: componentType,
-          location: (c as any).location ?? 'dk_aalborg',
+          is_active: c.is_active ?? true, component_type: (c.component_type === 'device' ? 'equipment' : c.component_type) ?? 'raw_material',
         })
       }
       setSuppliers(s ?? [])
@@ -73,7 +69,6 @@ export default function EditComponentPage() {
       notes: form.notes || null,
       is_active: form.is_active,
       component_type: form.component_type,
-      location: form.location || 'dk_aalborg',
     }).eq('id', id)
     if (error) { setError(error.message); setSaving(false); return }
     router.push(`/components/${id}`)
@@ -139,15 +134,6 @@ export default function EditComponentPage() {
                 <option value="">— No supplier —</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1.5">Current Location</label>
-              <LocationSelect
-                id="location"
-                value={form.location}
-                onChange={v => set('location', v)}
-                placeholder="Select location"
-              />
             </div>
             <Input
               label="Low Stock Threshold"
