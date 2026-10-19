@@ -269,6 +269,11 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
       }
     }
 
+    // F2: Auto-advance shipment to 'received' status after first receipt
+    if (!receipt) {
+      await supabase.from('shipments').update({ status: 'received' }).eq('id', shipmentId)
+    }
+
     setEditing(false)
     router.refresh()
     setSubmitting(false)
@@ -348,7 +353,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                         {formatQuantity(si.quantity_shipped, si.component!.unit)}
                       </td>
                       <td className="py-2 text-right">
-                        {ri ? formatQuantity(ri.quantity_received, si.component!.unit) : 'Ã¢ÂÂ'}
+                        {ri ? formatQuantity(ri.quantity_received, si.component!.unit) : 'ÃÂ¢ÃÂÃÂ'}
                       </td>
                       <td className="py-2 text-right">
                         {ii ? (
@@ -356,7 +361,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                             <CheckCircle className="w-3 h-3" />
                             {formatQuantity(ii.quantity_accepted, si.component!.unit)}
                           </span>
-                        ) : 'Ã¢ÂÂ'}
+                        ) : 'ÃÂ¢ÃÂÃÂ'}
                       </td>
                       <td className="py-2 text-right">
                         {ii && ii.quantity_rejected > 0 ? (
@@ -364,7 +369,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                             <XCircle className="w-3 h-3" />
                             {formatQuantity(ii.quantity_rejected, si.component!.unit)}
                           </span>
-                        ) : 'Ã¢ÂÂ'}
+                        ) : 'ÃÂ¢ÃÂÃÂ'}
                       </td>
                       <td className="py-2 text-right">
                         {ii && <ResultBadge result={ii.result} />}
@@ -419,7 +424,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                   <th className="text-left text-xs text-[var(--muted-foreground)] font-medium px-3 py-2">Component</th>
                   <th className="text-right text-xs text-[var(--muted-foreground)] font-medium px-3 py-2">Ordered</th>
                   <th className="text-right text-xs text-[var(--muted-foreground)] font-medium px-3 py-2 min-w-[110px]">Received</th>
-                  <th className="text-right text-xs text-green-600 font-medium px-3 py-2 min-w-[110px]">Accepted Ã¢ÂÂÃÂ Stock</th>
+                  <th className="text-right text-xs text-green-600 font-medium px-3 py-2 min-w-[110px]">Accepted ÃÂ¢ÃÂÃÂÃÂÃÂ Stock</th>
                   <th className="text-right text-xs text-red-600 font-medium px-3 py-2">Rejected</th>
                 </tr>
               </thead>
@@ -475,7 +480,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
                         </div>
                       </td>
                       <td className="px-3 py-2 text-right text-red-600 whitespace-nowrap">
-                        {recv > 0 && rejected > 0 ? formatQuantity(rejected, si.component!.unit) : 'Ã¢ÂÂ'}
+                        {recv > 0 && rejected > 0 ? formatQuantity(rejected, si.component!.unit) : 'ÃÂ¢ÃÂÃÂ'}
                       </td>
                     </tr>
                   )
@@ -515,7 +520,7 @@ export function ReceivingForm({ shipmentId, shipmentItems, receipt, isAdmin }: P
               disabled={submitting}
               className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
             >
-              {submitting ? 'SavingÃ¢ÂÂ¦' : receipt ? 'Update Record' : 'Save Receiving Record'}
+              {submitting ? 'SavingÃÂ¢ÃÂÃÂ¦' : receipt ? 'Update Record' : 'Save Receiving Record'}
             </button>
           </div>
         </form>
