@@ -88,7 +88,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   <Link href={`/requests/${(order.request as { id: string; code: string }).id}`} className="text-[var(--primary)] hover:underline">
                     {(order.request as { id: string; code: string; purpose: string | null }).code}
                   </Link>
-                  {(order.request as { purpose: string | null }).purpose && ` Â· ${(order.request as { purpose: string | null }).purpose}`}
+                  {(order.request as { purpose: string | null }).purpose && ` · ${(order.request as { purpose: string | null }).purpose}`}
                 </p>
               )}
             </CardHeader>
@@ -123,22 +123,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                             </Link>
                             <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
                           </div>
-                        ) : 'â'}
+                        ) : '—'}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         {formatQuantity(item.quantity, item.component?.unit ?? 'pcs')}
                       </TableCell>
                       {isAdmin && (
                         <TableCell className="text-sm">
-                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : 'â'}
+                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : '—'}
                         </TableCell>
                       )}
                       {isAdmin && (
                         <TableCell className="text-sm font-medium">
-                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : 'â'}
+                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : '—'}
                         </TableCell>
                       )}
-                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? 'â'}</TableCell>
+                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -187,7 +187,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                       <div>
                         <p className="text-sm">{event.description}</p>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {(event.performer as { full_name: string } | null)?.full_name} Â· {formatRelative(event.created_at)}
+                          {(event.performer as { full_name: string } | null)?.full_name} · {formatRelative(event.created_at)}
                         </p>
                       </div>
                     </div>
