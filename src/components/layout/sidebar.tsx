@@ -25,8 +25,8 @@ const masterNav = [
   { href: '/products', label: 'Products', icon: Factory, typeParam: undefined as string | undefined },
   { href: '/components', label: 'Components', icon: Boxes, typeParam: undefined as string | undefined },
   { href: '/suppliers', label: 'Suppliers', icon: Building2, typeParam: undefined as string | undefined },
-  { href: '/inventory?type=equipment', label: 'Equipment', icon: Wrench, typeParam: 'equipment' as string | undefined },
-  { href: '/inventory?type=consumable', label: 'Consumables', icon: Droplets, typeParam: 'consumable' as string | undefined },
+  { href: '/components?type=equipment', label: 'Equipment', icon: Wrench, typeParam: 'equipment' as string | undefined },
+  { href: '/components?type=consumable', label: 'Consumables', icon: Droplets, typeParam: 'consumable' as string | undefined },
 ]
 
 interface SidebarProps {
@@ -79,7 +79,7 @@ export function Sidebar({ profile }: SidebarProps) {
         </div>
         {masterNav.map(item => {
           const active = item.typeParam
-            ? pathname === '/inventory' && searchParams.get('type') === item.typeParam
+            ? pathname === '/components' && searchParams.get('type') === item.typeParam
             : pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
