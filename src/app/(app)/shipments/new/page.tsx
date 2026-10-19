@@ -372,7 +372,7 @@ export default function NewShipmentPage() {
                       {s.product_variants && (
                         <span className="text-sm text-[var(--muted-foreground)]">
                           {s.product_variants.name}
-                          {s.product_variants.products ? ' ÃÂ· ' + s.product_variants.products.name : ''}
+                          {s.product_variants.products ? ' Ã· ' + s.product_variants.products.name : ''}
                         </span>
                       )}
                       <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-[var(--accent)] capitalize">{s.status.replace(/_/g, ' ')}</span>
