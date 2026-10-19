@@ -9,21 +9,23 @@ import { formatDate } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
 const STATUS_LABELS: Record<string, string> = {
-  manufactured: 'Manufactured',
+  approved_to_build: 'Approved to Build',
+  manufacturing: 'Manufacturing',
   in_test: 'In Test',
+  failure_analysis: 'Failure Analysis',
   passed: 'Passed',
-  failed: 'Failed',
+  retired: 'Retired',
   scrapped: 'Scrapped',
-  deployed: 'Deployed',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  manufactured: 'badge-draft',
+  approved_to_build: 'badge-draft',
+  manufacturing: 'badge-ordered',
   in_test: 'badge-under-review',
+  failure_analysis: 'badge-cancelled',
   passed: 'badge-approved',
-  failed: 'badge-cancelled',
+  retired: 'badge-draft',
   scrapped: 'badge-cancelled',
-  deployed: 'badge-ordered',
 }
 
 export default async function SamplesPage() {
@@ -96,7 +98,7 @@ export default async function SamplesPage() {
                       <Link href={`/samples/${s.id}`} className="hover:text-[var(--primary)]">{displayName}</Link>
                     </TableCell>
                     <TableCell className="text-sm text-[var(--muted-foreground)]">
-                      {s.variant?.product?.name ?? '—'}
+                      {s.variant?.product?.name ?? 'â'}
                     </TableCell>
                     <TableCell>
                       <Badge className={`${STATUS_CLASS[s.status] ?? 'badge-draft'} text-xs`}>
