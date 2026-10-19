@@ -1,10 +1,11 @@
 'use client'
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
-  FlaskConical, Boxes, Building2, LogOut, ClipboardCheck, Factory, TestTube2
+  FlaskConical, Boxes, Building2, LogOut, Factory, TestTube2,
+  Wrench, Droplets
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -20,14 +21,12 @@ const userNav = [
   { href: '/samples', label: 'Samples', icon: TestTube2 },
 ]
 
-const adminOnlyNav = [
-  { href: '/receiving', label: 'Receiving', icon: ClipboardCheck },
-]
-
 const masterNav = [
-  { href: '/products', label: 'Products', icon: Factory },
-  { href: '/components', label: 'Components', icon: Boxes },
-  { href: '/suppliers', label: 'Suppliers', icon: Building2 },
+  { href: '/products', label: 'Products', icon: Factory, typeParam: undefined as string | undefined },
+  { href: '/components', label: 'Components', icon: Boxes, typeParam: undefined as string | undefined },
+  { href: '/suppliers', label: 'Suppliers', icon: Building2, typeParam: undefined as string | undefined },
+  { href: '/inventory?type=equipment', label: 'Equipment', icon: Wrench, typeParam: 'equipment' as string | undefined },
+  { href: '/inventory?type=consumable', label: 'Consumables', icon: Droplets, typeParam: 'consumable' as string | undefined },
 ]
 
 interface SidebarProps {
@@ -36,6 +35,7 @@ interface SidebarProps {
 
 export function Sidebar({ profile }: SidebarProps) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
   const isAdmin = profile.role === 'admin'
 
@@ -74,30 +74,13 @@ export function Sidebar({ profile }: SidebarProps) {
           )
         })}
 
-        {isAdmin && adminOnlyNav.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href.replace('/new', '') + '/')
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors',
-                active
-                  ? 'bg-[var(--primary)] text-white'
-                  : 'text-[var(--muted-foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]'
-              )}
-            >
-              <item.icon className="w-4 h-4 shrink-0" />
-              {item.label}
-            </Link>
-          )
-        })}
-
         <div className="pt-4 pb-1 px-3">
           <p className="text-xs font-semibold text-[var(--muted-foreground)] uppercase tracking-wider">Master Data</p>
         </div>
         {masterNav.map(item => {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          const active = item.typeParam
+            ? pathname === '/inventory' && searchParams.get('type') === item.typeParam
+            : pathname === item.href || pathname.startsWith(item.href + '/')
           return (
             <Link
               key={item.href}
