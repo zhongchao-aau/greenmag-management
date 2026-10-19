@@ -89,6 +89,33 @@ export function ShipmentActions({ shipmentId, status, isAdmin, hasException, exc
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: err } = await (supabase.from('shipments') as any).update(update).eq('id', shipmentId)
     if (err) { setError(err.message); setLoading(null); return }
+    // Log the status change to shipment_events
+    const legMap: Record<string, string> = {
+      china_dispatched: 'china',
+      cn_transit: 'china',
+      customs: 'china',
+      eu_transit: 'eu',
+      delivered: 'eu',
+      received: 'eu',
+      complete: 'eu',
+    }
+    const statusLabels: Record<string, string> = {
+      created: 'Created',
+      china_dispatched: 'Dispatched from China',
+      cn_transit: 'In Transit (China)',
+      customs: 'Customs Clearance',
+      eu_transit: 'In EU Transit',
+      delivered: 'Delivered',
+      received: 'Received',
+      complete: 'Complete',
+    }
+    await (supabase.from('shipment_events') as any).insert({
+      shipment_id: shipmentId,
+      description: `Status changed: ${statusLabels[next] ?? next}`,
+      location: null,
+      tracking_leg: legMap[next] ?? null,
+      event_date: new Date().toISOString(),
+    })
     router.refresh()
     setLoading(null)
   }
