@@ -9,14 +9,14 @@ export const dynamic = 'force-dynamic'
 
 const FILTER_TABS = [
   { value: '', label: 'All Items' },
-  { value: 'low', label: '⚠️ Low Stock' },
-  { value: 'zero', label: '🔴 Out of Stock' },
+  { value: 'low', label: 'â ï¸ Low Stock' },
+  { value: 'zero', label: 'ð´ Out of Stock' },
 ]
 
 // Orders that are active (placed but not yet fully received)
 const ACTIVE_ORDER_STATUSES = ['approved', 'ordered', 'confirmed', 'partially_shipped', 'shipped', 'partially_received']
 // Shipments that are in transit (not yet delivered)
-const ACTIVE_SHIPMENT_STATUSES = ['dispatched', 'in_transit', 'customs', 'out_for_delivery']
+const ACTIVE_SHIPMENT_STATUSES = ['dispatched', 'in_transit', 'customs', 'out_for_delivery', 'china_dispatched', 'cn_transit', 'eu_transit']
 // Build requests that are active (components reserved)
 const ACTIVE_BUILD_STATUSES = ['submitted', 'under_review', 'approved']
 
@@ -218,7 +218,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                             </div>
                           </TableCell>
                           <TableCell className="text-sm text-[var(--muted-foreground)]">
-                            {(c.supplier as { name: string } | null)?.name ?? '—'}
+                            {(c.supplier as { name: string } | null)?.name ?? 'â'}
                           </TableCell>
                           <TableCell className="text-sm">{c.unit}</TableCell>
                           <TableCell className={`text-right text-sm font-medium ${c.isZero ? 'text-red-600' : c.isLow ? 'text-amber-600' : ''}`}>
@@ -227,20 +227,20 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                           <TableCell className="text-right text-sm">
                             {c.onOrder > 0
                               ? <span className="text-blue-600 dark:text-blue-400 font-medium">+{formatQuantity(c.onOrder)}</span>
-                              : <span className="text-[var(--muted-foreground)]">—</span>}
+                              : <span className="text-[var(--muted-foreground)]">â</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.inTransit > 0
                               ? <span className="text-indigo-600 dark:text-indigo-400 font-medium">+{formatQuantity(c.inTransit)}</span>
-                              : <span className="text-[var(--muted-foreground)]">—</span>}
+                              : <span className="text-[var(--muted-foreground)]">â</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm">
                             {c.reserved > 0
                               ? <span className="text-orange-600 dark:text-orange-400 font-medium">{formatQuantity(c.reserved)}</span>
-                              : <span className="text-[var(--muted-foreground)]">—</span>}
+                              : <span className="text-[var(--muted-foreground)]">â</span>}
                           </TableCell>
                           <TableCell className="text-right text-sm text-[var(--muted-foreground)]">
-                            {c.low_stock_threshold != null ? formatQuantity(c.low_stock_threshold) : '—'}
+                            {c.low_stock_threshold != null ? formatQuantity(c.low_stock_threshold) : 'â'}
                           </TableCell>
                           <TableCell>
                             {c.isZero ? (
