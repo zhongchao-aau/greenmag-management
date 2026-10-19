@@ -1,250 +1,108 @@
 'use client'
-
 import { useState, useEffect } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
+import { ArrowLeft, FlaskConical } from 'lucide-react'
 
-const STATUSES = [
-  { value: 'approved_to_build', label: 'Approved to Build' },
-  { value: 'manufacturing', label: 'Manufacturing' },
-  { value: 'in_test', label: 'In Test' },
-  { value: 'failure_analysis', label: 'Failure Analysis' },
-  { value: 'passed', label: 'Passed' },
-  { value: 'retired', label: 'Retired' },
-  { value: 'scrapped', label: 'Scrapped' },
-]
-
-interface Product { id: string; name: string; code: string }
-interface Variant { id: string; name: string; code: string }
-
-export default function EditSamplePage({ params }: { params: Promise<{ id: string }> }) {
-  const [sampleId, setSampleId] = useState<string | null>(null)
-  const [products, setProducts] = useState<Product[]>([])
-  const [variants, setVariants] = useState<Variant[]>([])
-  const [name, setName] = useState('')
-  const [code, setCode] = useState('')
-  const [productId, setProductId] = useState('')
-  const [variantId, setVariantId] = useState('')
-  const [status, setStatus] = useState('approved_to_build')
-  const [location, setLocation] = useState('')
-  const [buildObjective, setBuildObjective] = useState('')
-  const [notes, setNotes] = useState('')
-  const [loading, setLoading] = useState(true)
+export default function EditSamplePage() {
+  const router = useRouter()
+  const params = useParams()
+  const id = params.id as string
+  const [loadingData, setLoadingData] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const router = useRouter()
-  const supabase = createClient()
+  const [sampleCode, setSampleCode] = useState('')
+  const [form, setForm] = useState({
+    manufacture_date: '',
+    notes: '',
+  })
 
-  // Load products once
   useEffect(() => {
-    supabase
-      .from('products')
-      .select('id, name, code')
-      .order('name')
-      .then(({ data }) => { if (data) setProducts(data) })
-  }, [])
-
-  // Load sample data
-  useEffect(() => {
-    params.then(async ({ id }) => {
-      setSampleId(id)
-      const { data: sample } = await supabase
+    async function load() {
+      const supabase = createClient()
+      const { data: s } = await supabase
         .from('samples')
-        .select('*')
+        .select('code, manufacture_date, notes')
         .eq('id', id)
         .single()
-
-      if (sample) {
-        setName(sample.name ?? '')
-        setCode(sample.code ?? '')
-        setProductId(sample.product_id ?? '')
-        setVariantId(sample.variant_id ?? '')
-        setStatus(sample.status ?? 'approved_to_build')
-        setLocation((sample as any).location ?? '')
-        setBuildObjective((sample as any).build_objective ?? '')
-        setNotes((sample as any).notes ?? '')
+      if (s) {
+        setSampleCode(s.code ?? '')
+        setForm({
+          manufacture_date: s.manufacture_date ? s.manufacture_date.slice(0, 10) : '',
+          notes: s.notes ?? '',
+        })
       }
-      setLoading(false)
-    })
-  }, [])
-
-  // Load variants when product changes
-  useEffect(() => {
-    if (!productId) {
-      setVariants([])
-      return
+      setLoadingData(false)
     }
-    supabase
-      .from('product_variants')
-      .select('id, name, code')
-      .eq('product_id', productId)
-      .order('name')
-      .then(({ data }) => { if (data) setVariants(data) })
-  }, [productId])
+    load()
+  }, [id])
 
-  async function handleSave(e: React.FormEvent) {
+  function set(field: string, value: string) {
+    setForm(f => ({ ...f, [field]: value }))
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!sampleId) return
-    setSaving(true)
     setError('')
-
-    const { error: updateError } = await supabase
-      .from('samples')
-      .update({
-        name,
-        product_id: productId || null,
-        variant_id: variantId || null,
-        status,
-        location: location || null,
-        build_objective: buildObjective || null,
-        notes: notes || null,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq('id', sampleId)
-
-    setSaving(false)
-    if (updateError) {
-      setError(updateError.message)
-    } else {
-      router.push(`/samples/${sampleId}`)
-      router.refresh()
-    }
+    setSaving(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('samples').update({
+      manufacture_date: form.manufacture_date || null,
+      notes: form.notes || null,
+    }).eq('id', id)
+    if (error) { setError(error.message); setSaving(false); return }
+    router.push(`/samples/${id}`)
+    router.refresh()
   }
 
-  const inputClass = 'w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
-  const labelClass = 'block text-sm font-medium text-gray-700 mb-1'
-
-  if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Loading…</div>
-  }
+  if (loadingData) return <div className="p-6 text-sm text-[var(--muted-foreground)]">Loading...</div>
 
   return (
     <div className="p-6 max-w-2xl mx-auto">
-      <div className="mb-6">
-        <Link href={`/samples/${sampleId}`} className="text-sm text-gray-500 hover:text-gray-700">← Back to Sample</Link>
-        <h1 className="text-2xl font-bold text-gray-900 mt-2">Edit Sample</h1>
-        <p className="text-xs font-mono text-gray-400 mt-1">{code}</p>
-      </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4 text-red-700 text-sm">
-          {error}
-        </div>
-      )}
-
-      <form onSubmit={handleSave} className="space-y-6">
-        {/* Product & Variant */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Product</h2>
-          <div className="grid grid-cols-1 gap-4">
+      <Link href={`/samples/${id}`} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] mb-6">
+        <ArrowLeft className="w-4 h-4" />Back to Sample
+      </Link>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center gap-2">
+            <FlaskConical className="w-5 h-5 text-violet-500 shrink-0" />
             <div>
-              <label className={labelClass}>Product</label>
-              <select
-                value={productId}
-                onChange={e => { setProductId(e.target.value); setVariantId('') }}
-                className={inputClass}
-              >
-                <option value="">No product selected</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className={labelClass}>Variant</label>
-              <select
-                value={variantId}
-                onChange={e => setVariantId(e.target.value)}
-                className={inputClass}
-                disabled={!productId || variants.length === 0}
-              >
-                <option value="">
-                  {!productId ? 'Select a product first' : variants.length === 0 ? 'No variants available' : 'No variant selected'}
-                </option>
-                {variants.map(v => (
-                  <option key={v.id} value={v.id}>{v.code} — {v.name}</option>
-                ))}
-              </select>
+              <CardTitle>Edit Sample</CardTitle>
+              {sampleCode && <p className="text-sm text-[var(--muted-foreground)] font-mono mt-0.5">{sampleCode}</p>}
             </div>
           </div>
-        </div>
-
-        {/* Basic Info */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Basic Information</h2>
-          <div className="grid grid-cols-1 gap-4">
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className={labelClass}>Sample Name</label>
+              <label className="block text-sm font-medium mb-1.5">Manufacture Date</label>
               <input
-                type="text"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className={inputClass}
-                required
+                type="date"
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                value={form.manufacture_date}
+                onChange={e => set('manufacture_date', e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelClass}>Status</label>
-                <select
-                  value={status}
-                  onChange={e => setStatus(e.target.value)}
-                  className={inputClass}
-                >
-                  {STATUSES.map(s => (
-                    <option key={s.value} value={s.value}>{s.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Location</label>
-                <input
-                  type="text"
-                  value={location}
-                  onChange={e => setLocation(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
+            <div>
+              <label className="block text-sm font-medium mb-1.5">Notes</label>
+              <textarea
+                className="w-full rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm min-h-[100px] resize-y focus:outline-none focus:ring-2 focus:ring-[var(--primary)] focus:border-transparent"
+                value={form.notes}
+                onChange={e => set('notes', e.target.value)}
+                placeholder="Optional notes about this sample..."
+              />
             </div>
-          </div>
-        </div>
-
-        {/* Build Objective */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Build Objective</h2>
-          <textarea
-            value={buildObjective}
-            onChange={e => setBuildObjective(e.target.value)}
-            rows={3}
-            placeholder="What is this sample being built for?"
-            className={inputClass}
-          />
-        </div>
-
-        {/* Notes */}
-        <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Notes</h2>
-          <textarea
-            value={notes}
-            onChange={e => setNotes(e.target.value)}
-            rows={3}
-            className={inputClass}
-          />
-        </div>
-
-        {/* Actions */}
-        <div className="flex items-center justify-between">
-          <Link href={`/samples/${sampleId}`} className="text-sm text-gray-500 hover:text-gray-700">Cancel</Link>
-          <button
-            type="submit"
-            disabled={saving}
-            className="bg-indigo-600 text-white px-6 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? 'Saving…' : 'Save Changes'}
-          </button>
-        </div>
-      </form>
+            {error && <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>}
+            <div className="flex gap-3 pt-2">
+              <Button type="submit" loading={saving}>Save Changes</Button>
+              <Link href={`/samples/${id}`}><Button type="button" variant="outline">Cancel</Button></Link>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
     </div>
   )
 }
