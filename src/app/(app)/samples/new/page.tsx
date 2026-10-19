@@ -59,7 +59,7 @@ export default function NewSamplePage() {
       .insert({
         variant_id: form.variant_id,
         variant_serial: nextSerial,
-        status: 'manufactured',
+        status: 'approved_to_build',
         manufacture_date: form.manufacture_date || null,
         notes: form.notes || null,
       })
@@ -96,10 +96,10 @@ export default function NewSamplePage() {
                 onChange={e => set('variant_id', e.target.value)}
                 required
               >
-                <option value="">— Select a variant —</option>
+                <option value="">â Select a variant â</option>
                 {variants.map(v => (
                   <option key={v.id} value={v.id}>
-                    {v.product_name ? `${v.product_name} · ` : ''}{v.name}
+                    {v.product_name ? `${v.product_name} Â· ` : ''}{v.name}
                   </option>
                 ))}
               </select>
