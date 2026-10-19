@@ -129,7 +129,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
     }
   }
 
-  const isDelivered = shipment.status === 'delivered'
+  const isDelivered = shipment.status === 'delivered' || shipment.status === 'received'
 
   // Fetch receipt + full inspection for this shipment
   const { data: receiptData } = await supabase
@@ -199,16 +199,16 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                   <CardTitle>{shipment.description ?? shipment.code}</CardTitle>
                   {(shipment.origin || shipment.destination) && (
                     <div className="flex items-center gap-2 mt-2 text-sm text-[var(--muted-foreground)]">
-                      <span>{LOCATION_LABELS[shipment.origin ?? ''] ?? shipment.origin ?? 'â'}</span>
+                      <span>{LOCATION_LABELS[shipment.origin ?? ''] ?? shipment.origin ?? 'Ã¢ÂÂ'}</span>
                       <ArrowRight className="w-3.5 h-3.5" />
-                      <span>{LOCATION_LABELS[shipment.destination ?? ''] ?? shipment.destination ?? 'â'}</span>
+                      <span>{LOCATION_LABELS[shipment.destination ?? ''] ?? shipment.destination ?? 'Ã¢ÂÂ'}</span>
                     </div>
                   )}
                   {linkedOrders.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {linkedOrders.map(o => (
                         <Link key={o.id} href={`/orders/${o.id}`} className="text-xs text-[var(--primary)] bg-[var(--accent)] rounded px-2 py-0.5 hover:underline font-mono">
-                          {o.code}{o.supplier ? ` Â· ${o.supplier.name}` : ''}
+                          {o.code}{o.supplier ? ` ÃÂ· ${o.supplier.name}` : ''}
                         </Link>
                       ))}
                     </div>
@@ -293,7 +293,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             </Card>
           </div>
 
-          {/* Components â ordered quantities */}
+          {/* Components Ã¢ÂÂ ordered quantities */}
           {shipmentItems.length > 0 && (
             <Card>
               <CardHeader><CardTitle className="flex items-center gap-2"><Package className="w-4 h-4" />Components Ordered</CardTitle></CardHeader>
@@ -310,7 +310,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                             </Link>
                             <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
                           </div>
-                        ) : 'â'}
+                        ) : 'Ã¢ÂÂ'}
                       </div>
                       <span className="text-sm font-medium text-[var(--muted-foreground)]">
                         {formatQuantity(item.quantity_shipped, item.component?.unit ?? 'pcs')}
@@ -322,7 +322,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
             </Card>
           )}
 
-          {/* Receiving & Inspection â editable form shown when delivered or receipt exists */}
+          {/* Receiving & Inspection Ã¢ÂÂ editable form shown when delivered or receipt exists */}
           {(isDelivered || receipt) && isAdmin && shipmentItems.length > 0 && (
             <ReceivingForm
               shipmentId={id}
@@ -378,7 +378,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                           </Badge>
                         </div>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {e.location && `${e.location} Â· `}{formatDate(e.event_date)}
+                          {e.location && `${e.location} ÃÂ· `}{formatDate(e.event_date)}
                         </p>
                       </div>
                     </div>
