@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import {
   LayoutDashboard, FileText, ShoppingCart, Truck, Package,
-  FlaskConical, Boxes, Building2, LogOut, Magnet, ClipboardCheck, Factory, TestTube2
+  FlaskConical, Boxes, Building2, LogOut, ClipboardCheck, Factory, TestTube2
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 import { createClient } from '@/lib/supabase/client'
@@ -49,14 +49,8 @@ export function Sidebar({ profile }: SidebarProps) {
   return (
     <aside className="flex flex-col w-60 min-h-screen bg-[var(--card)] border-r border-[var(--border)] shrink-0">
       {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[var(--border)]">
-        <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--primary)]">
-          <Magnet className="w-4 h-4 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-[var(--foreground)] leading-tight">GreenMag</p>
-          <p className="text-xs text-[var(--muted-foreground)]">Procurement</p>
-        </div>
+      <div className="flex items-center px-5 py-4 border-b border-[var(--border)]">
+        <img src="/greenmag-logo.png" alt="GreenMag" style={{height: '28px', width: 'auto', maxWidth: '160px'}} />
       </div>
 
       {/* Navigation */}
