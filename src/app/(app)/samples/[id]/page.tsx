@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { ArrowLeft, FlaskConical } from 'lucide-react'
+import { ArrowLeft, FlaskConical, Pencil } from 'lucide-react'
 import { formatDate } from '@/lib/utils'
 import { SampleActions } from './sample-actions'
 export const dynamic = 'force-dynamic'
@@ -103,7 +103,14 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
                       {STATUS_LABELS[s.status] ?? s.status}
                     </Badge>
                   </div>
-                  <CardTitle className="text-lg">{displayName}</CardTitle>
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-lg">{displayName}</CardTitle>
+                    {isAdmin && (
+                      <Link href={`/samples/${id}/edit`} className="flex items-center gap-1.5 text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] shrink-0 border border-[var(--border)] rounded-md px-2 py-1 transition-colors">
+                        <Pencil className="w-3 h-3" />Edit
+                      </Link>
+                    )}
+                  </div>
                   {s.variant?.product && (
                     <p className="text-sm text-[var(--muted-foreground)] mt-1">
                       <Link href={`/products/${s.variant.product.id}`} className="hover:text-[var(--primary)]">
