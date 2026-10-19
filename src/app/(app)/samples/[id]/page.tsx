@@ -9,44 +9,50 @@ import { SampleActions } from './sample-actions'
 export const dynamic = 'force-dynamic'
 
 const STATUS_LABELS: Record<string, string> = {
-  manufactured: 'Manufactured',
+  approved_to_build: 'Approved to Build',
+  manufacturing: 'Manufacturing',
   in_test: 'In Test',
+  failure_analysis: 'Failure Analysis',
   passed: 'Passed',
-  failed: 'Failed',
+  retired: 'Retired',
   scrapped: 'Scrapped',
-  deployed: 'Deployed',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  manufactured: 'badge-draft',
+  approved_to_build: 'badge-draft',
+  manufacturing: 'badge-ordered',
   in_test: 'badge-under-review',
+  failure_analysis: 'badge-cancelled',
   passed: 'badge-approved',
-  failed: 'badge-cancelled',
+  retired: 'badge-draft',
   scrapped: 'badge-cancelled',
-  deployed: 'badge-ordered',
 }
 
 // Which transitions are allowed from each status
 const TRANSITIONS: Record<string, { label: string; next: string; variant?: string }[]> = {
-  manufactured: [
-    { label: 'Start Testing', next: 'in_test' },
+  approved_to_build: [
+    { label: 'Start Manufacturing', next: 'manufacturing' },
+    { label: 'Scrap', next: 'scrapped', variant: 'destructive' },
+  ],
+  manufacturing: [
+    { label: 'Send to Test', next: 'in_test' },
     { label: 'Scrap', next: 'scrapped', variant: 'destructive' },
   ],
   in_test: [
     { label: 'Mark Passed', next: 'passed' },
-    { label: 'Mark Failed', next: 'failed', variant: 'destructive' },
-    { label: 'Back to Manufactured', next: 'manufactured' },
+    { label: 'Mark Failed', next: 'failure_analysis', variant: 'destructive' },
+    { label: 'Back to Manufacturing', next: 'manufacturing' },
   ],
-  passed: [
-    { label: 'Deploy', next: 'deployed' },
-    { label: 'Back to In Test', next: 'in_test' },
-  ],
-  failed: [
-    { label: 'Back to In Test', next: 'in_test' },
+  failure_analysis: [
+    { label: 'Retry Testing', next: 'in_test' },
     { label: 'Scrap', next: 'scrapped', variant: 'destructive' },
   ],
-  deployed: [
-    { label: 'Back to Passed', next: 'passed' },
+  passed: [
+    { label: 'Retire', next: 'retired' },
+    { label: 'Scrap', next: 'scrapped', variant: 'destructive' },
+  ],
+  retired: [
+    { label: 'Scrap', next: 'scrapped', variant: 'destructive' },
   ],
   scrapped: [],
 }
@@ -116,7 +122,7 @@ export default async function SampleDetailPage({ params }: { params: Promise<{ i
                       <Link href={`/products/${s.variant.product.id}`} className="hover:text-[var(--primary)]">
                         {s.variant.product.name}
                       </Link>
-                      {' · '}
+                      {' Â· '}
                       <Link href={`/products/${s.variant.product.id}`} className="hover:text-[var(--primary)]">
                         {s.variant.name}
                       </Link>
