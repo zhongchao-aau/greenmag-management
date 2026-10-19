@@ -208,7 +208,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                     <div className="flex flex-wrap gap-2 mt-2">
                       {linkedOrders.map(o => (
                         <Link key={o.id} href={`/orders/${o.id}`} className="text-xs text-[var(--primary)] bg-[var(--accent)] rounded px-2 py-0.5 hover:underline font-mono">
-                          {o.code}{o.supplier ? ` ÃÂ· ${o.supplier.name}` : ''}
+                          {o.code}{o.supplier ? ` Ã· ${o.supplier.name}` : ''}
                         </Link>
                       ))}
                     </div>
@@ -378,7 +378,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                           </Badge>
                         </div>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {e.location && `${e.location} ÃÂ· `}{formatDate(e.event_date)}
+                          {e.location && `${e.location} Ã· `}{formatDate(e.event_date)}
                         </p>
                       </div>
                     </div>
