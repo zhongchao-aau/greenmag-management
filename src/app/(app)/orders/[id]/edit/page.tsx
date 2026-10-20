@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -13,13 +12,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ArrowLeft, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -54,27 +46,19 @@ export default function EditOrderPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isAdmin, setIsAdmin] = useState(false)
 
-  // Order header fields
   const [expectedDelivery, setExpectedDelivery] = useState('')
-  const [notes, setNotes] = useState('')           // description / order name
-  const [supplierRef, setSupplierRef] = useState('') // order-level notes
+  const [notes, setNotes] = useState('')
+  const [supplierRef, setSupplierRef] = useState('')
   const [orderStatus, setOrderStatus] = useState('')
 
-  // Order items
   const [items, setItems] = useState<OrderItem[]>([])
-
-  // Reference data
   const [components, setComponents] = useState<Component[]>([])
 
-  // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => {
-    loadData()
-  }, [id])
+  useEffect(() => { loadData() }, [id])
 
   async function loadData() {
     setLoading(true)
@@ -89,55 +73,40 @@ export default function EditOrderPage() {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role !== 'admin') {
-        router.push('/dashboard')
-        return
-      }
-      setIsAdmin(true)
+      if (profile?.role !== 'admin') { router.push('/dashboard'); return }
 
-      // Load order
       const { data: order, error: orderErr } = await supabase
         .from('purchase_orders')
         .select('*')
         .eq('id', id)
         .single()
 
-      if (orderErr || !order) {
-        setError('Order not found')
-        setLoading(false)
-        return
-      }
+      if (orderErr || !order) { setError('Order not found'); setLoading(false); return }
 
       setExpectedDelivery(order.expected_delivery ? order.expected_delivery.split('T')[0] : '')
       setNotes(order.notes || '')
       setSupplierRef(order.supplier_ref || '')
       setOrderStatus(order.status || '')
 
-      // Load components with their supplier info
       const { data: componentsData } = await supabase
         .from('components')
         .select('id, name, unit, code, supplier_id, suppliers(name)')
         .eq('is_active', true)
         .order('name')
 
-      const mappedComponents = (componentsData || []).map((c) => ({
-        id: c.id,
-        name: c.name,
-        unit: c.unit,
-        code: c.code,
-        supplier_id: c.supplier_id,
-        supplier_name: c.suppliers?.name || null,
+      const mapped = (componentsData || []).map((c: any) => ({
+        id: c.id, name: c.name, unit: c.unit, code: c.code,
+        supplier_id: c.supplier_id, supplier_name: c.suppliers?.name || null,
       }))
-      setComponents(mappedComponents)
+      setComponents(mapped)
 
-      // Load order items
       const { data: orderItems } = await supabase
         .from('order_items')
         .select('*, components(name, unit, code, supplier_id, suppliers(name))')
         .eq('order_id', id)
 
       if (orderItems) {
-        setItems(orderItems.map((oi) => ({
+        setItems(orderItems.map((oi: any) => ({
           id: oi.id,
           component_id: oi.component_id,
           component_name: oi.components?.name || '',
@@ -149,46 +118,31 @@ export default function EditOrderPage() {
           notes: oi.notes || '',
         })))
       }
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    } catch (err: any) { setError(err.message) }
+    finally { setLoading(false) }
   }
 
   function addItem() {
     setItems(prev => [...prev, {
-      component_id: '',
-      component_name: '',
-      supplier_name: '',
-      quantity_ordered: '',
-      unit: 'pcs',
-      unit_price: '',
-      currency: 'EUR',
-      notes: '',
+      component_id: '', component_name: '', supplier_name: '',
+      quantity_ordered: '', unit: 'pcs', unit_price: '', currency: 'EUR', notes: '',
     }])
   }
 
-  function removeItem(index) {
+  function removeItem(index: number) {
     setItems(prev => prev.map((item, i) => {
       if (i !== index) return item
       if (item.id) return { ...item, _delete: true }
       return null
-    }).filter(Boolean))
+    }).filter(Boolean) as OrderItem[])
   }
 
-  function updateItem(index, field, value) {
+  function updateItem(index: number, field: keyof OrderItem, value: string) {
     setItems(prev => prev.map((item, i) => {
       if (i !== index) return item
       if (field === 'component_id') {
         const comp = components.find(c => c.id === value)
-        return {
-          ...item,
-          component_id: value,
-          component_name: comp?.name || '',
-          supplier_name: comp?.supplier_name || '',
-          unit: comp?.unit || 'pcs',
-        }
+        return { ...item, component_id: value, component_name: comp?.name || '', supplier_name: comp?.supplier_name || '', unit: comp?.unit || 'pcs' }
       }
       return { ...item, [field]: value }
     }))
@@ -197,8 +151,7 @@ export default function EditOrderPage() {
   const visibleItems = items.filter(it => !it._delete)
 
   async function handleSave() {
-    setSaving(true)
-    setError(null)
+    setSaving(true); setError(null)
     try {
       if (!notes.trim()) throw new Error('Please enter a description')
       const validItems = visibleItems.filter(it => it.component_id && it.quantity_ordered)
@@ -206,96 +159,56 @@ export default function EditOrderPage() {
 
       const { error: updateErr } = await supabase
         .from('purchase_orders')
-        .update({
-          expected_delivery: expectedDelivery || null,
-          notes: notes || null,
-          supplier_ref: supplierRef || null,
-        })
+        .update({ expected_delivery: expectedDelivery || null, notes: notes || null, supplier_ref: supplierRef || null })
         .eq('id', id)
-
       if (updateErr) throw updateErr
 
-      const toDelete = items.filter(it => it._delete && it.id)
-      for (const item of toDelete) {
-        const { error: delErr } = await supabase.from('order_items').delete().eq('id', item.id)
-        if (delErr) throw delErr
+      for (const item of items.filter(it => it._delete && it.id)) {
+        const { error: e } = await supabase.from('order_items').delete().eq('id', item.id!)
+        if (e) throw e
       }
 
       for (const item of validItems) {
+        const payload = {
+          component_id: item.component_id, item_name: item.component_name,
+          quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+          unit: item.unit, unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+          currency: item.currency, notes: item.notes || null,
+        }
         if (item.id) {
-          const { error: updErr } = await supabase
-            .from('order_items')
-            .update({
-              component_id: item.component_id,
-              item_name: item.component_name,
-              quantity_ordered: parseFloat(item.quantity_ordered) || 0,
-              unit: item.unit,
-              unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
-              currency: item.currency,
-              notes: item.notes || null,
-            })
-            .eq('id', item.id)
-          if (updErr) throw updErr
+          const { error: e } = await supabase.from('order_items').update(payload).eq('id', item.id)
+          if (e) throw e
         } else {
-          const { error: insErr } = await supabase
-            .from('order_items')
-            .insert({
-              order_id: id,
-              component_id: item.component_id,
-              item_name: item.component_name,
-              quantity_ordered: parseFloat(item.quantity_ordered) || 0,
-              unit: item.unit,
-              unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
-              currency: item.currency,
-              notes: item.notes || null,
-            })
-          if (insErr) throw insErr
+          const { error: e } = await supabase.from('order_items').insert({ order_id: id, ...payload })
+          if (e) throw e
         }
       }
 
       router.push(`/orders/${id}`)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setSaving(false)
-    }
+    } catch (err: any) { setError(err.message) }
+    finally { setSaving(false) }
   }
 
   async function handleDelete() {
-    setDeleting(true)
-    setError(null)
+    setDeleting(true); setError(null)
     try {
       await supabase.from('order_items').delete().eq('order_id', id)
-      const { error: delErr } = await supabase
-        .from('purchase_orders')
-        .delete()
-        .eq('id', id)
-      if (delErr) throw delErr
+      const { error: e } = await supabase.from('purchase_orders').delete().eq('id', id)
+      if (e) throw e
       router.push('/orders')
-    } catch (err) {
-      setError(err.message)
-      setDeleting(false)
-    }
+    } catch (err: any) { setError(err.message); setDeleting(false) }
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-muted-foreground">Loading order...</div>
-      </div>
-    )
-  }
+  if (loading) return <div className="flex items-center justify-center min-h-screen"><div className="text-muted-foreground">Loading order...</div></div>
 
   const isEditable = ['approved', 'ordered'].includes(orderStatus)
+  const selectCls = "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 
   return (
     <div className="container mx-auto py-6 max-w-4xl space-y-6">
       <div className="flex items-center gap-4">
         <Link href={`/orders/${id}`}>
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back to Order
-          </Button>
+          <Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back to Order</Button>
         </Link>
         <div>
           <h1 className="text-2xl font-bold">Edit Order</h1>
@@ -306,58 +219,27 @@ export default function EditOrderPage() {
       {!isEditable && (
         <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200">
           <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="text-sm">
-            This order has status <strong>{orderStatus}</strong>. Only orders in &quot;approved&quot; or &quot;ordered&quot; status can be edited.
-          </span>
+          <span className="text-sm">This order has status <strong>{orderStatus}</strong>. Only orders in &quot;approved&quot; or &quot;ordered&quot; status can be edited.</span>
         </div>
       )}
 
-      {error && (
-        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
-          {error}
-        </div>
-      )}
+      {error && <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">{error}</div>}
 
       <Card>
-        <CardHeader>
-          <CardTitle>Order Details</CardTitle>
-          <CardDescription>Basic order information</CardDescription>
-        </CardHeader>
+        <CardHeader><CardTitle>Order Details</CardTitle><CardDescription>Basic order information</CardDescription></CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="notes">Description *</Label>
-            <Input
-              id="notes"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              placeholder="e.g. Winding wire batch Q3 2026"
-              disabled={!isEditable}
-            />
+            <label htmlFor="notes" className="text-sm font-medium leading-none">Description *</label>
+            <Input id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Winding wire batch Q3 2026" disabled={!isEditable} />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="delivery">Expected Delivery</Label>
-            <Input
-              id="delivery"
-              type="date"
-              value={expectedDelivery}
-              onChange={e => setExpectedDelivery(e.target.value)}
-              disabled={!isEditable}
-              className="max-w-xs"
-            />
+            <label htmlFor="delivery" className="text-sm font-medium leading-none">Expected Delivery</label>
+            <Input id="delivery" type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} disabled={!isEditable} className="max-w-xs" />
           </div>
-
           <div className="space-y-2">
-            <Label htmlFor="supplierRef">Order Notes</Label>
-            <textarea
-              id="supplierRef"
-              value={supplierRef}
-              onChange={e => setSupplierRef(e.target.value)}
-              placeholder="Any additional notes for this order..."
-              disabled={!isEditable}
-              rows={2}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-            />
+            <label htmlFor="supplierRef" className="text-sm font-medium leading-none">Order Notes</label>
+            <textarea id="supplierRef" value={supplierRef} onChange={e => setSupplierRef(e.target.value)} placeholder="Any additional notes for this order..." disabled={!isEditable} rows={2}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none" />
           </div>
         </CardContent>
       </Card>
@@ -366,59 +248,31 @@ export default function EditOrderPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Order Items</CardTitle>
-            <CardDescription>Components — supplier is determined by the selected component</CardDescription>
+            <CardDescription>Supplier is determined by the selected component</CardDescription>
           </div>
-          {isEditable && (
-            <Button onClick={addItem} size="sm" variant="outline">
-              <Plus className="h-4 w-4 mr-1" />
-              Add Item
-            </Button>
-          )}
+          {isEditable && <Button onClick={addItem} size="sm" variant="outline"><Plus className="h-4 w-4 mr-1" />Add Item</Button>}
         </CardHeader>
         <CardContent className="space-y-4">
-          {visibleItems.length === 0 && (
-            <p className="text-center text-muted-foreground py-6">No items. Add at least one item.</p>
-          )}
+          {visibleItems.length === 0 && <p className="text-center text-muted-foreground py-6">No items. Add at least one item.</p>}
           {visibleItems.map((item, index) => {
             const realIndex = items.indexOf(item)
             return (
               <div key={index} className="border rounded-lg p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
-                  {isEditable && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeItem(realIndex)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
+                  {isEditable && <Button variant="ghost" size="sm" onClick={() => removeItem(realIndex)} className="text-destructive hover:text-destructive"><Trash2 className="h-4 w-4" /></Button>}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Component *</Label>
-                    <Select
-                      value={item.component_id}
-                      onValueChange={val => updateItem(realIndex, 'component_id', val)}
-                      disabled={!isEditable}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="-- Select component --" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {components.map(c => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}{c.code ? ` (${c.code})` : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <label className="text-xs font-medium">Component *</label>
+                    <select value={item.component_id} onChange={e => updateItem(realIndex, 'component_id', e.target.value)} disabled={!isEditable} className={selectCls}>
+                      <option value="">-- Select component --</option>
+                      {components.map(c => <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ''}</option>)}
+                    </select>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Supplier</Label>
+                    <label className="text-xs font-medium">Supplier</label>
                     <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted text-sm text-muted-foreground">
                       {item.supplier_name || (item.component_id ? 'No supplier linked' : '—')}
                     </div>
@@ -427,70 +281,35 @@ export default function EditOrderPage() {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Quantity *</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={item.quantity_ordered}
-                      onChange={e => updateItem(realIndex, 'quantity_ordered', e.target.value)}
-                      placeholder="0"
-                      disabled={!isEditable}
-                    />
+                    <label className="text-xs font-medium">Quantity *</label>
+                    <Input type="number" min="0" step="any" value={item.quantity_ordered} onChange={e => updateItem(realIndex, 'quantity_ordered', e.target.value)} placeholder="0" disabled={!isEditable} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Unit</Label>
-                    <Input
-                      value={item.unit}
-                      onChange={e => updateItem(realIndex, 'unit', e.target.value)}
-                      placeholder="pcs"
-                      disabled={!isEditable}
-                    />
+                    <label className="text-xs font-medium">Unit</label>
+                    <Input value={item.unit} onChange={e => updateItem(realIndex, 'unit', e.target.value)} placeholder="pcs" disabled={!isEditable} />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Unit Price</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      step="any"
-                      value={item.unit_price}
-                      onChange={e => updateItem(realIndex, 'unit_price', e.target.value)}
-                      placeholder="0.00"
-                      disabled={!isEditable}
-                    />
+                    <label className="text-xs font-medium">Unit Price</label>
+                    <Input type="number" min="0" step="any" value={item.unit_price} onChange={e => updateItem(realIndex, 'unit_price', e.target.value)} placeholder="0.00" disabled={!isEditable} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs">Currency</Label>
-                    <Select
-                      value={item.currency}
-                      onValueChange={val => updateItem(realIndex, 'currency', val)}
-                      disabled={!isEditable}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="EUR">EUR</SelectItem>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="CNY">CNY</SelectItem>
-                        <SelectItem value="DKK">DKK</SelectItem>
-                        <SelectItem value="GBP">GBP</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <label className="text-xs font-medium">Currency</label>
+                    <select value={item.currency} onChange={e => updateItem(realIndex, 'currency', e.target.value)} disabled={!isEditable} className={selectCls}>
+                      <option value="EUR">EUR</option>
+                      <option value="USD">USD</option>
+                      <option value="CNY">CNY</option>
+                      <option value="DKK">DKK</option>
+                      <option value="GBP">GBP</option>
+                    </select>
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs">Item Notes</Label>
-                  <Input
-                    value={item.notes}
-                    onChange={e => updateItem(realIndex, 'notes', e.target.value)}
-                    placeholder="Optional notes for this item"
-                    disabled={!isEditable}
-                  />
+                  <label className="text-xs font-medium">Item Notes</label>
+                  <Input value={item.notes} onChange={e => updateItem(realIndex, 'notes', e.target.value)} placeholder="Optional notes for this item" disabled={!isEditable} />
                 </div>
               </div>
             )
@@ -500,12 +319,8 @@ export default function EditOrderPage() {
 
       {isEditable && (
         <div className="flex justify-end gap-3">
-          <Link href={`/orders/${id}`}>
-            <Button variant="outline">Cancel</Button>
-          </Link>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Save Changes'}
-          </Button>
+          <Link href={`/orders/${id}`}><Button variant="outline">Cancel</Button></Link>
+          <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
         </div>
       )}
 
@@ -515,37 +330,18 @@ export default function EditOrderPage() {
           <CardDescription>Permanently delete this order and all its items</CardDescription>
         </CardHeader>
         <CardContent>
-          {!showDeleteConfirm ? (
-            <Button
-              variant="destructive"
-              onClick={() => setShowDeleteConfirm(true)}
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Order
-            </Button>
-          ) : (
-            <div className="space-y-3">
-              <p className="text-sm text-destructive font-medium">
-                Are you sure? This will permanently delete the order and all its items. This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <Button
-                  variant="destructive"
-                  onClick={handleDelete}
-                  disabled={deleting}
-                >
-                  {deleting ? 'Deleting...' : 'Yes, Delete Order'}
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setShowDeleteConfirm(false)}
-                  disabled={deleting}
-                >
-                  Cancel
-                </Button>
+          {!showDeleteConfirm
+            ? <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}><Trash2 className="h-4 w-4 mr-2" />Delete Order</Button>
+            : (
+              <div className="space-y-3">
+                <p className="text-sm text-destructive font-medium">Are you sure? This will permanently delete the order and all its items. This action cannot be undone.</p>
+                <div className="flex gap-3">
+                  <Button variant="destructive" onClick={handleDelete} disabled={deleting}>{deleting ? 'Deleting...' : 'Yes, Delete Order'}</Button>
+                  <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>Cancel</Button>
+                </div>
               </div>
-            </div>
-          )}
+            )
+          }
         </CardContent>
       </Card>
     </div>
