@@ -189,12 +189,13 @@ export default function EditOrderPage() {
 
       const toDelete = items.filter(it => it._delete && it.id)
       for (const item of toDelete) {
-        await supabase.from('order_items').delete().eq('id', item.id!)
+        const { error: delErr } = await supabase.from('order_items').delete().eq('id', item.id!)
+        if (delErr) throw delErr
       }
 
-      for (const item of visibleItems) {
+      for (const item of validItems) {
         if (item.id) {
-          await supabase.from('order_items').update({
+          const { error: updErr } = await supabase.from('order_items').update({
             component_id: item.component_id,
             quantity: parseFloat(item.quantity_ordered) || 0,
             unit: item.unit,
@@ -202,8 +203,9 @@ export default function EditOrderPage() {
             currency: item.currency,
             notes: item.notes || null,
           }).eq('id', item.id)
+          if (updErr) throw updErr
         } else {
-          await supabase.from('order_items').insert({
+          const { error: insErr } = await supabase.from('order_items').insert({
             order_id: id,
             component_id: item.component_id,
             quantity: parseFloat(item.quantity_ordered) || 0,
@@ -212,6 +214,7 @@ export default function EditOrderPage() {
             currency: item.currency,
             notes: item.notes || null,
           })
+          if (insErr) throw insErr
         }
       }
       router.push(`/orders/${id}`)
