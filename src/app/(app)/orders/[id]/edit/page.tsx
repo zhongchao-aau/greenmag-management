@@ -20,7 +20,7 @@ interface OrderItem {
   component_id: string
   component_name: string
   supplier_name: string
-  quantity_ordered: string
+  quantity: string
   unit: string
   unit_price: string
   currency: string
@@ -111,7 +111,7 @@ export default function EditOrderPage() {
           component_id: oi.component_id,
           component_name: oi.components?.name || '',
           supplier_name: oi.components?.suppliers?.name || '',
-          quantity_ordered: String(oi.quantity_ordered ?? ''),
+          quantity: String(oi.quantity ?? ''),
           unit: oi.unit || oi.components?.unit || 'pcs',
           unit_price: String(oi.unit_price || ''),
           currency: oi.currency || 'EUR',
@@ -125,7 +125,7 @@ export default function EditOrderPage() {
   function addItem() {
     setItems(prev => [...prev, {
       component_id: '', component_name: '', supplier_name: '',
-      quantity_ordered: '', unit: 'pcs', unit_price: '', currency: 'EUR', notes: '',
+      quantity: '', unit: 'pcs', unit_price: '', currency: 'EUR', notes: '',
     }])
   }
 
@@ -154,7 +154,7 @@ export default function EditOrderPage() {
     setSaving(true); setError(null)
     try {
       if (!notes.trim()) throw new Error('Please enter a description')
-      const validItems = visibleItems.filter(it => it.component_id && it.quantity_ordered)
+      const validItems = visibleItems.filter(it => it.component_id && it.quantity)
       if (validItems.length === 0) throw new Error('Please add at least one item with a component and quantity')
 
       const { error: updateErr } = await supabase
@@ -171,7 +171,7 @@ export default function EditOrderPage() {
       for (const item of validItems) {
         const payload = {
           component_id: item.component_id, item_name: item.component_name,
-          quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+          quantity: parseFloat(item.quantity) || 0,
           unit: item.unit, unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
           currency: item.currency, notes: item.notes || null,
         }
@@ -274,7 +274,7 @@ export default function EditOrderPage() {
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Supplier</label>
                     <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted text-sm text-muted-foreground">
-                      {item.supplier_name || (item.component_id ? 'No supplier linked' : '—')}
+                      {item.supplier_name || (item.component_id ? 'No supplier linked' : 'â')}
                     </div>
                   </div>
                 </div>
@@ -282,7 +282,7 @@ export default function EditOrderPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Quantity *</label>
-                    <Input type="number" min="0" step="any" value={item.quantity_ordered} onChange={e => updateItem(realIndex, 'quantity_ordered', e.target.value)} placeholder="0" disabled={!isEditable} />
+                    <Input type="number" min="0" step="any" value={item.quantity} onChange={e => updateItem(realIndex, 'quantity', e.target.value)} placeholder="0" disabled={!isEditable} />
                   </div>
                   <div className="space-y-1">
                     <label className="text-xs font-medium">Unit</label>
