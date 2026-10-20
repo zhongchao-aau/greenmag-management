@@ -36,7 +36,7 @@ interface Component {
   id: string
   name: string
   unit: string
-  sku: string | null
+  code: string | null
 }
 
 export default function EditOrderPage() {
@@ -104,7 +104,7 @@ export default function EditOrderPage() {
 
       const { data: orderItems } = await supabase
         .from('order_items')
-        .select('*, components(name, unit, sku)')
+        .select('*, components(name, unit, code)')
         .eq('order_id', id)
 
       if (orderItems) {
@@ -129,7 +129,7 @@ export default function EditOrderPage() {
 
       const { data: componentsData } = await supabase
         .from('components')
-        .select('id, name, unit, sku')
+        .select('id, name, unit, code')
         .eq('is_active', true)
         .order('name')
       setComponents(componentsData || [])
@@ -339,7 +339,7 @@ export default function EditOrderPage() {
                     <select value={item.component_id} onChange={e => updateItem(realIndex, 'component_id', e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                       <option value="">-- Select component --</option>
                       {components.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}{c.sku ? ` (${c.sku})` : ''}</option>
+                        <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ''}</option>
                       ))}
                     </select>
                   </div>
