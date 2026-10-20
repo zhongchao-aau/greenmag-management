@@ -13,13 +13,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { ArrowLeft, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -293,16 +286,12 @@ export default function EditOrderPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="supplier">Supplier *</Label>
-              <Select value={supplierId} onValueChange={setSupplierId} disabled={!isEditable}>
-                <SelectTrigger id="supplier">
-                  <SelectValue placeholder="-- Select supplier --" />
-                </SelectTrigger>
-                <SelectContent>
-                  {suppliers.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <select id="supplier" value={supplierId} onChange={e => setSupplierId(e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                <option value="">-- Select supplier --</option>
+                {suppliers.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="delivery">Expected Delivery</Label>
@@ -348,16 +337,12 @@ export default function EditOrderPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-xs">Component *</Label>
-                    <Select value={item.component_id} onValueChange={val => updateItem(realIndex, 'component_id', val)} disabled={!isEditable}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="-- Select component --" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {components.map(c => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}{c.sku ? ` (${c.sku})` : ''}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <select value={item.component_id} onChange={e => updateItem(realIndex, 'component_id', e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                      <option value="">-- Select component --</option>
+                      {components.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}{c.sku ? ` (${c.sku})` : ''}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
@@ -376,16 +361,13 @@ export default function EditOrderPage() {
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Currency</Label>
-                      <Select value={item.currency} onValueChange={val => updateItem(realIndex, 'currency', val)} disabled={!isEditable}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="EUR">EUR</SelectItem>
-                          <SelectItem value="USD">USD</SelectItem>
-                          <SelectItem value="CNY">CNY</SelectItem>
-                          <SelectItem value="DKK">DKK</SelectItem>
-                          <SelectItem value="GBP">GBP</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <select value={item.currency} onChange={e => updateItem(realIndex, 'currency', e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
+                        <option value="EUR">EUR</option>
+                        <option value="USD">USD</option>
+                        <option value="CNY">CNY</option>
+                        <option value="DKK">DKK</option>
+                        <option value="GBP">GBP</option>
+                      </select>
                     </div>
                   </div>
                   <div className="space-y-1 md:col-span-2">
