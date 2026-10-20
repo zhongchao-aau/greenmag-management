@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -12,6 +13,13 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ArrowLeft, Plus, Trash2, AlertTriangle } from 'lucide-react'
 import Link from 'next/link'
 
@@ -19,6 +27,7 @@ interface OrderItem {
   id?: string
   component_id: string
   component_name: string
+  supplier_name: string
   quantity_ordered: string
   unit: string
   unit_price: string
@@ -27,16 +36,13 @@ interface OrderItem {
   _delete?: boolean
 }
 
-interface Supplier {
-  id: string
-  name: string
-}
-
 interface Component {
   id: string
   name: string
   unit: string
   code: string | null
+  supplier_id: string | null
+  supplier_name: string | null
 }
 
 export default function EditOrderPage() {
@@ -50,16 +56,19 @@ export default function EditOrderPage() {
   const [error, setError] = useState<string | null>(null)
   const [isAdmin, setIsAdmin] = useState(false)
 
-  const [supplierId, setSupplierId] = useState('')
+  // Order header fields
   const [expectedDelivery, setExpectedDelivery] = useState('')
-  const [notes, setNotes] = useState('')
+  const [notes, setNotes] = useState('')           // description / order name
+  const [supplierRef, setSupplierRef] = useState('') // order-level notes
   const [orderStatus, setOrderStatus] = useState('')
-  const [supplierRef, setSupplierRef] = useState('')
 
+  // Order items
   const [items, setItems] = useState<OrderItem[]>([])
-  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+
+  // Reference data
   const [components, setComponents] = useState<Component[]>([])
 
+  // Delete confirmation
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -86,6 +95,7 @@ export default function EditOrderPage() {
       }
       setIsAdmin(true)
 
+      // Load order
       const { data: order, error: orderErr } = await supabase
         .from('purchase_orders')
         .select('*')
@@ -98,44 +108,48 @@ export default function EditOrderPage() {
         return
       }
 
-      setSupplierId(order.supplier_id || '')
       setExpectedDelivery(order.expected_delivery ? order.expected_delivery.split('T')[0] : '')
       setNotes(order.notes || '')
       setSupplierRef(order.supplier_ref || '')
       setOrderStatus(order.status || '')
 
+      // Load components with their supplier info
+      const { data: componentsData } = await supabase
+        .from('components')
+        .select('id, name, unit, code, supplier_id, suppliers(name)')
+        .eq('is_active', true)
+        .order('name')
+
+      const mappedComponents = (componentsData || []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        unit: c.unit,
+        code: c.code,
+        supplier_id: c.supplier_id,
+        supplier_name: c.suppliers?.name || null,
+      }))
+      setComponents(mappedComponents)
+
+      // Load order items
       const { data: orderItems } = await supabase
         .from('order_items')
-        .select('*, components(name, unit, code)')
+        .select('*, components(name, unit, code, supplier_id, suppliers(name))')
         .eq('order_id', id)
 
       if (orderItems) {
-        setItems(orderItems.map((oi: any) => ({
+        setItems(orderItems.map((oi) => ({
           id: oi.id,
           component_id: oi.component_id,
           component_name: oi.components?.name || '',
-          quantity_ordered: String(oi.quantity),
+          supplier_name: oi.components?.suppliers?.name || '',
+          quantity_ordered: String(oi.quantity_ordered ?? ''),
           unit: oi.unit || oi.components?.unit || 'pcs',
           unit_price: String(oi.unit_price || ''),
           currency: oi.currency || 'EUR',
           notes: oi.notes || '',
         })))
       }
-
-      const { data: suppliersData } = await supabase
-        .from('suppliers')
-        .select('id, name')
-        .eq('is_active', true)
-        .order('name')
-      setSuppliers(suppliersData || [])
-
-      const { data: componentsData } = await supabase
-        .from('components')
-        .select('id, name, unit, code')
-        .eq('is_active', true)
-        .order('name')
-      setComponents(componentsData || [])
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message)
     } finally {
       setLoading(false)
@@ -146,6 +160,7 @@ export default function EditOrderPage() {
     setItems(prev => [...prev, {
       component_id: '',
       component_name: '',
+      supplier_name: '',
       quantity_ordered: '',
       unit: 'pcs',
       unit_price: '',
@@ -154,20 +169,26 @@ export default function EditOrderPage() {
     }])
   }
 
-  function removeItem(index: number) {
+  function removeItem(index) {
     setItems(prev => prev.map((item, i) => {
       if (i !== index) return item
       if (item.id) return { ...item, _delete: true }
       return null
-    }).filter(Boolean) as OrderItem[])
+    }).filter(Boolean))
   }
 
-  function updateItem(index: number, field: keyof OrderItem, value: string) {
+  function updateItem(index, field, value) {
     setItems(prev => prev.map((item, i) => {
       if (i !== index) return item
       if (field === 'component_id') {
         const comp = components.find(c => c.id === value)
-        return { ...item, component_id: value, component_name: comp?.name || '', unit: comp?.unit || 'pcs' }
+        return {
+          ...item,
+          component_id: value,
+          component_name: comp?.name || '',
+          supplier_name: comp?.supplier_name || '',
+          unit: comp?.unit || 'pcs',
+        }
       }
       return { ...item, [field]: value }
     }))
@@ -179,50 +200,61 @@ export default function EditOrderPage() {
     setSaving(true)
     setError(null)
     try {
-      if (!supplierId) throw new Error('Please select a supplier')
+      if (!notes.trim()) throw new Error('Please enter a description')
       const validItems = visibleItems.filter(it => it.component_id && it.quantity_ordered)
-      if (validItems.length === 0) throw new Error('Please add at least one item')
+      if (validItems.length === 0) throw new Error('Please add at least one item with a component and quantity')
 
       const { error: updateErr } = await supabase
         .from('purchase_orders')
-        .update({ supplier_id: supplierId, expected_delivery: expectedDelivery || null, notes: notes || null, supplier_ref: supplierRef || null })
+        .update({
+          expected_delivery: expectedDelivery || null,
+          notes: notes || null,
+          supplier_ref: supplierRef || null,
+        })
         .eq('id', id)
+
       if (updateErr) throw updateErr
 
       const toDelete = items.filter(it => it._delete && it.id)
       for (const item of toDelete) {
-        const { error: delErr } = await supabase.from('order_items').delete().eq('id', item.id!)
+        const { error: delErr } = await supabase.from('order_items').delete().eq('id', item.id)
         if (delErr) throw delErr
       }
 
       for (const item of validItems) {
         if (item.id) {
-          const { error: updErr } = await supabase.from('order_items').update({
-            component_id: item.component_id,
-            item_name: item.component_name,
-            quantity: parseFloat(item.quantity_ordered) || 0,
-            unit: item.unit,
-            unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
-            currency: item.currency,
-            notes: item.notes || null,
-          }).eq('id', item.id)
+          const { error: updErr } = await supabase
+            .from('order_items')
+            .update({
+              component_id: item.component_id,
+              item_name: item.component_name,
+              quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+              unit: item.unit,
+              unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+              currency: item.currency,
+              notes: item.notes || null,
+            })
+            .eq('id', item.id)
           if (updErr) throw updErr
         } else {
-          const { error: insErr } = await supabase.from('order_items').insert({
-            order_id: id,
-            component_id: item.component_id,
-            item_name: item.component_name,
-            quantity: parseFloat(item.quantity_ordered) || 0,
-            unit: item.unit,
-            unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
-            currency: item.currency,
-            notes: item.notes || null,
-          })
+          const { error: insErr } = await supabase
+            .from('order_items')
+            .insert({
+              order_id: id,
+              component_id: item.component_id,
+              item_name: item.component_name,
+              quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+              unit: item.unit,
+              unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+              currency: item.currency,
+              notes: item.notes || null,
+            })
           if (insErr) throw insErr
         }
       }
+
       router.push(`/orders/${id}`)
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message)
     } finally {
       setSaving(false)
@@ -234,10 +266,13 @@ export default function EditOrderPage() {
     setError(null)
     try {
       await supabase.from('order_items').delete().eq('order_id', id)
-      const { error: delErr } = await supabase.from('purchase_orders').delete().eq('id', id)
+      const { error: delErr } = await supabase
+        .from('purchase_orders')
+        .delete()
+        .eq('id', id)
       if (delErr) throw delErr
       router.push('/orders')
-    } catch (err: any) {
+    } catch (err) {
       setError(err.message)
       setDeleting(false)
     }
@@ -290,27 +325,39 @@ export default function EditOrderPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="notes">Description *</label>
-            <Input id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Winding wire batch Q3 2026" disabled={!isEditable} />
+            <Label htmlFor="notes">Description *</Label>
+            <Input
+              id="notes"
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="e.g. Winding wire batch Q3 2026"
+              disabled={!isEditable}
+            />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label htmlFor="delivery">Expected Delivery</label>
-              <Input id="delivery" type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} disabled={!isEditable} />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="supplier">Supplier</label>
-              <select id="supplier" value={supplierId} onChange={e => setSupplierId(e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                <option value="">-- Select supplier --</option>
-                {suppliers.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+
           <div className="space-y-2">
-            <label htmlFor="supplierRef">Order Notes</label>
-            <textarea id="supplierRef" value={supplierRef} onChange={e => setSupplierRef(e.target.value)} placeholder="Internal notes about this order..." disabled={!isEditable} rows={2} className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+            <Label htmlFor="delivery">Expected Delivery</Label>
+            <Input
+              id="delivery"
+              type="date"
+              value={expectedDelivery}
+              onChange={e => setExpectedDelivery(e.target.value)}
+              disabled={!isEditable}
+              className="max-w-xs"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="supplierRef">Order Notes</Label>
+            <textarea
+              id="supplierRef"
+              value={supplierRef}
+              onChange={e => setSupplierRef(e.target.value)}
+              placeholder="Any additional notes for this order..."
+              disabled={!isEditable}
+              rows={2}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
+            />
           </div>
         </CardContent>
       </Card>
@@ -319,7 +366,7 @@ export default function EditOrderPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Order Items</CardTitle>
-            <CardDescription>Components included in this order</CardDescription>
+            <CardDescription>Components — supplier is determined by the selected component</CardDescription>
           </div>
           {isEditable && (
             <Button onClick={addItem} size="sm" variant="outline">
@@ -339,51 +386,111 @@ export default function EditOrderPage() {
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
                   {isEditable && (
-                    <Button variant="ghost" size="sm" onClick={() => removeItem(realIndex)} className="text-destructive hover:text-destructive">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeItem(realIndex)}
+                      className="text-destructive hover:text-destructive"
+                    >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs">Component *</label>
-                    <select value={item.component_id} onChange={e => updateItem(realIndex, 'component_id', e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                      <option value="">-- Select component --</option>
-                      {components.map(c => (
-                        <option key={c.id} value={c.id}>{c.name}{c.code ? ` (${c.code})` : ''}</option>
-                      ))}
-                    </select>
+                    <Label className="text-xs">Component *</Label>
+                    <Select
+                      value={item.component_id}
+                      onValueChange={val => updateItem(realIndex, 'component_id', val)}
+                      disabled={!isEditable}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="-- Select component --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {components.map(c => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}{c.code ? ` (${c.code})` : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs">Quantity *</label>
-                      <Input type="number" min="0" step="any" value={item.quantity_ordered} onChange={e => updateItem(realIndex, 'quantity_ordered', e.target.value)} placeholder="0" disabled={!isEditable} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs">Unit</label>
-                      <Input value={item.unit} onChange={e => updateItem(realIndex, 'unit', e.target.value)} placeholder="pcs" disabled={!isEditable} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-1">
-                      <label className="text-xs">Unit Price</label>
-                      <Input type="number" min="0" step="any" value={item.unit_price} onChange={e => updateItem(realIndex, 'unit_price', e.target.value)} placeholder="0.00" disabled={!isEditable} />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-xs">Currency</label>
-                      <select value={item.currency} onChange={e => updateItem(realIndex, 'currency', e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
-                        <option value="EUR">EUR</option>
-                        <option value="USD">USD</option>
-                        <option value="CNY">CNY</option>
-                        <option value="DKK">DKK</option>
-                        <option value="GBP">GBP</option>
-                      </select>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Supplier</Label>
+                    <div className="flex items-center h-10 px-3 rounded-md border border-input bg-muted text-sm text-muted-foreground">
+                      {item.supplier_name || (item.component_id ? 'No supplier linked' : '—')}
                     </div>
                   </div>
-                  <div className="space-y-1 md:col-span-2">
-                    <label className="text-xs">Notes</label>
-                    <Input value={item.notes} onChange={e => updateItem(realIndex, 'notes', e.target.value)} placeholder="Optional notes for this item" disabled={!isEditable} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Quantity *</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.quantity_ordered}
+                      onChange={e => updateItem(realIndex, 'quantity_ordered', e.target.value)}
+                      placeholder="0"
+                      disabled={!isEditable}
+                    />
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Unit</Label>
+                    <Input
+                      value={item.unit}
+                      onChange={e => updateItem(realIndex, 'unit', e.target.value)}
+                      placeholder="pcs"
+                      disabled={!isEditable}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Unit Price</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={item.unit_price}
+                      onChange={e => updateItem(realIndex, 'unit_price', e.target.value)}
+                      placeholder="0.00"
+                      disabled={!isEditable}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Currency</Label>
+                    <Select
+                      value={item.currency}
+                      onValueChange={val => updateItem(realIndex, 'currency', val)}
+                      disabled={!isEditable}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="EUR">EUR</SelectItem>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="CNY">CNY</SelectItem>
+                        <SelectItem value="DKK">DKK</SelectItem>
+                        <SelectItem value="GBP">GBP</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-xs">Item Notes</Label>
+                  <Input
+                    value={item.notes}
+                    onChange={e => updateItem(realIndex, 'notes', e.target.value)}
+                    placeholder="Optional notes for this item"
+                    disabled={!isEditable}
+                  />
                 </div>
               </div>
             )
@@ -409,7 +516,10 @@ export default function EditOrderPage() {
         </CardHeader>
         <CardContent>
           {!showDeleteConfirm ? (
-            <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete Order
             </Button>
@@ -419,10 +529,18 @@ export default function EditOrderPage() {
                 Are you sure? This will permanently delete the order and all its items. This action cannot be undone.
               </p>
               <div className="flex gap-3">
-                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                <Button
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={deleting}
+                >
                   {deleting ? 'Deleting...' : 'Yes, Delete Order'}
                 </Button>
-                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
+                <Button
+                  variant="outline"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                >
                   Cancel
                 </Button>
               </div>
