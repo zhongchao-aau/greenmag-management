@@ -120,7 +120,7 @@ export default function EditOrderPage() {
           id: oi.id,
           component_id: oi.component_id,
           component_name: oi.components?.name || '',
-          quantity_ordered: String(oi.quantity_ordered),
+          quantity_ordered: String(oi.quantity),
           unit: oi.unit || oi.components?.unit || 'pcs',
           unit_price: String(oi.unit_price || ''),
           currency: oi.currency || 'EUR',
@@ -204,7 +204,7 @@ export default function EditOrderPage() {
         if (item.id) {
           await supabase.from('order_items').update({
             component_id: item.component_id,
-            quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+            quantity: parseFloat(item.quantity_ordered) || 0,
             unit: item.unit,
             unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
             currency: item.currency,
@@ -214,7 +214,7 @@ export default function EditOrderPage() {
           await supabase.from('order_items').insert({
             order_id: id,
             component_id: item.component_id,
-            quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+            quantity: parseFloat(item.quantity_ordered) || 0,
             unit: item.unit,
             unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
             currency: item.currency,
