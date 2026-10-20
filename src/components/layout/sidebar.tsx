@@ -23,10 +23,10 @@ const userNav = [
 
 const masterNav = [
   { href: '/products', label: 'Products', icon: Factory, typeParam: undefined as string | undefined },
-  { href: '/components', label: 'Components', icon: Boxes, typeParam: undefined as string | undefined },
-  { href: '/suppliers', label: 'Suppliers', icon: Building2, typeParam: undefined as string | undefined },
+  { href: '/components?type=raw_material', label: 'Materials', icon: Boxes, typeParam: 'raw_material' as string | undefined },
   { href: '/components?type=equipment', label: 'Equipment', icon: Wrench, typeParam: 'equipment' as string | undefined },
   { href: '/components?type=consumable', label: 'Consumables', icon: Droplets, typeParam: 'consumable' as string | undefined },
+  { href: '/suppliers', label: 'Suppliers', icon: Building2, typeParam: undefined as string | undefined },
 ]
 
 interface SidebarProps {
