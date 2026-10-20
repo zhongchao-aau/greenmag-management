@@ -197,6 +197,7 @@ export default function EditOrderPage() {
         if (item.id) {
           const { error: updErr } = await supabase.from('order_items').update({
             component_id: item.component_id,
+            item_name: item.component_name,
             quantity: parseFloat(item.quantity_ordered) || 0,
             unit: item.unit,
             unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
@@ -208,6 +209,7 @@ export default function EditOrderPage() {
           const { error: insErr } = await supabase.from('order_items').insert({
             order_id: id,
             component_id: item.component_id,
+            item_name: item.component_name,
             quantity: parseFloat(item.quantity_ordered) || 0,
             unit: item.unit,
             unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
