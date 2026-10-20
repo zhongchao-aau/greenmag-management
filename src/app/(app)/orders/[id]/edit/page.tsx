@@ -1,0 +1,444 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { ArrowLeft, Plus, Trash2, AlertTriangle } from 'lucide-react'
+import Link from 'next/link'
+
+interface OrderItem {
+  id?: string
+  component_id: string
+  component_name: string
+  quantity_ordered: string
+  unit: string
+  unit_price: string
+  currency: string
+  notes: string
+  _delete?: boolean
+}
+
+interface Supplier {
+  id: string
+  name: string
+}
+
+interface Component {
+  id: string
+  name: string
+  unit: string
+  sku: string | null
+}
+
+export default function EditOrderPage() {
+  const params = useParams()
+  const router = useRouter()
+  const id = params.id as string
+  const supabase = createClient()
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  const [supplierId, setSupplierId] = useState('')
+  const [expectedDelivery, setExpectedDelivery] = useState('')
+  const [notes, setNotes] = useState('')
+  const [orderStatus, setOrderStatus] = useState('')
+
+  const [items, setItems] = useState<OrderItem[]>([])
+  const [suppliers, setSuppliers] = useState<Supplier[]>([])
+  const [components, setComponents] = useState<Component[]>([])
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  useEffect(() => {
+    loadData()
+  }, [id])
+
+  async function loadData() {
+    setLoading(true)
+    setError(null)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) { router.push('/login'); return }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role !== 'admin') {
+        router.push('/dashboard')
+        return
+      }
+      setIsAdmin(true)
+
+      const { data: order, error: orderErr } = await supabase
+        .from('purchase_orders')
+        .select('*')
+        .eq('id', id)
+        .single()
+
+      if (orderErr || !order) {
+        setError('Order not found')
+        setLoading(false)
+        return
+      }
+
+      setSupplierId(order.supplier_id || '')
+      setExpectedDelivery(order.expected_delivery ? order.expected_delivery.split('T')[0] : '')
+      setNotes(order.notes || '')
+      setOrderStatus(order.status || '')
+
+      const { data: orderItems } = await supabase
+        .from('order_items')
+        .select('*, components(name, unit, sku)')
+        .eq('order_id', id)
+
+      if (orderItems) {
+        setItems(orderItems.map((oi: any) => ({
+          id: oi.id,
+          component_id: oi.component_id,
+          component_name: oi.components?.name || '',
+          quantity_ordered: String(oi.quantity_ordered),
+          unit: oi.unit || oi.components?.unit || 'pcs',
+          unit_price: String(oi.unit_price || ''),
+          currency: oi.currency || 'EUR',
+          notes: oi.notes || '',
+        })))
+      }
+
+      const { data: suppliersData } = await supabase
+        .from('suppliers')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name')
+      setSuppliers(suppliersData || [])
+
+      const { data: componentsData } = await supabase
+        .from('components')
+        .select('id, name, unit, sku')
+        .eq('is_active', true)
+        .order('name')
+      setComponents(componentsData || [])
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function addItem() {
+    setItems(prev => [...prev, {
+      component_id: '',
+      component_name: '',
+      quantity_ordered: '',
+      unit: 'pcs',
+      unit_price: '',
+      currency: 'EUR',
+      notes: '',
+    }])
+  }
+
+  function removeItem(index: number) {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== index) return item
+      if (item.id) return { ...item, _delete: true }
+      return null
+    }).filter(Boolean) as OrderItem[])
+  }
+
+  function updateItem(index: number, field: keyof OrderItem, value: string) {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== index) return item
+      if (field === 'component_id') {
+        const comp = components.find(c => c.id === value)
+        return { ...item, component_id: value, component_name: comp?.name || '', unit: comp?.unit || 'pcs' }
+      }
+      return { ...item, [field]: value }
+    }))
+  }
+
+  const visibleItems = items.filter(it => !it._delete)
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+    try {
+      if (!supplierId) throw new Error('Please select a supplier')
+      const validItems = visibleItems.filter(it => it.component_id && it.quantity_ordered)
+      if (validItems.length === 0) throw new Error('Please add at least one item')
+
+      const { error: updateErr } = await supabase
+        .from('purchase_orders')
+        .update({ supplier_id: supplierId, expected_delivery: expectedDelivery || null, notes: notes || null })
+        .eq('id', id)
+      if (updateErr) throw updateErr
+
+      const toDelete = items.filter(it => it._delete && it.id)
+      for (const item of toDelete) {
+        await supabase.from('order_items').delete().eq('id', item.id!)
+      }
+
+      for (const item of visibleItems) {
+        if (item.id) {
+          await supabase.from('order_items').update({
+            component_id: item.component_id,
+            quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+            unit: item.unit,
+            unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+            currency: item.currency,
+            notes: item.notes || null,
+          }).eq('id', item.id)
+        } else {
+          await supabase.from('order_items').insert({
+            order_id: id,
+            component_id: item.component_id,
+            quantity_ordered: parseFloat(item.quantity_ordered) || 0,
+            unit: item.unit,
+            unit_price: item.unit_price ? parseFloat(item.unit_price) : null,
+            currency: item.currency,
+            notes: item.notes || null,
+          })
+        }
+      }
+      router.push(`/orders/${id}`)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    setError(null)
+    try {
+      await supabase.from('order_items').delete().eq('order_id', id)
+      const { error: delErr } = await supabase.from('purchase_orders').delete().eq('id', id)
+      if (delErr) throw delErr
+      router.push('/orders')
+    } catch (err: any) {
+      setError(err.message)
+      setDeleting(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-muted-foreground">Loading order...</div>
+      </div>
+    )
+  }
+
+  const isEditable = ['approved', 'ordered'].includes(orderStatus)
+
+  return (
+    <div className="container mx-auto py-6 max-w-4xl space-y-6">
+      <div className="flex items-center gap-4">
+        <Link href={`/orders/${id}`}>
+          <Button variant="ghost" size="sm">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back to Order
+          </Button>
+        </Link>
+        <div>
+          <h1 className="text-2xl font-bold">Edit Order</h1>
+          <p className="text-sm text-muted-foreground">Modify order details and items</p>
+        </div>
+      </div>
+
+      {!isEditable && (
+        <div className="flex items-center gap-2 p-4 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg text-amber-800 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <span className="text-sm">
+            This order has status <strong>{orderStatus}</strong>. Only orders in &quot;approved&quot; or &quot;ordered&quot; status can be edited.
+          </span>
+        </div>
+      )}
+
+      {error && (
+        <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-lg text-destructive text-sm">
+          {error}
+        </div>
+      )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Order Details</CardTitle>
+          <CardDescription>Basic order information</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="supplier">Supplier *</Label>
+              <Select value={supplierId} onValueChange={setSupplierId} disabled={!isEditable}>
+                <SelectTrigger id="supplier">
+                  <SelectValue placeholder="-- Select supplier --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {suppliers.map(s => (
+                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="delivery">Expected Delivery</Label>
+              <Input id="delivery" type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} disabled={!isEditable} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="notes">Notes</Label>
+            <Textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes..." disabled={!isEditable} rows={3} />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <div>
+            <CardTitle>Order Items</CardTitle>
+            <CardDescription>Components included in this order</CardDescription>
+          </div>
+          {isEditable && (
+            <Button onClick={addItem} size="sm" variant="outline">
+              <Plus className="h-4 w-4 mr-1" />
+              Add Item
+            </Button>
+          )}
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {visibleItems.length === 0 && (
+            <p className="text-center text-muted-foreground py-6">No items. Add at least one item.</p>
+          )}
+          {visibleItems.map((item, index) => {
+            const realIndex = items.indexOf(item)
+            return (
+              <div key={index} className="border rounded-lg p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium text-muted-foreground">Item {index + 1}</span>
+                  {isEditable && (
+                    <Button variant="ghost" size="sm" onClick={() => removeItem(realIndex)} className="text-destructive hover:text-destructive">
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Component *</Label>
+                    <Select value={item.component_id} onValueChange={val => updateItem(realIndex, 'component_id', val)} disabled={!isEditable}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="-- Select component --" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {components.map(c => (
+                          <SelectItem key={c.id} value={c.id}>{c.name}{c.sku ? ` (${c.sku})` : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Quantity *</Label>
+                      <Input type="number" min="0" step="any" value={item.quantity_ordered} onChange={e => updateItem(realIndex, 'quantity_ordered', e.target.value)} placeholder="0" disabled={!isEditable} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Unit</Label>
+                      <Input value={item.unit} onChange={e => updateItem(realIndex, 'unit', e.target.value)} placeholder="pcs" disabled={!isEditable} />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Unit Price</Label>
+                      <Input type="number" min="0" step="any" value={item.unit_price} onChange={e => updateItem(realIndex, 'unit_price', e.target.value)} placeholder="0.00" disabled={!isEditable} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Currency</Label>
+                      <Select value={item.currency} onValueChange={val => updateItem(realIndex, 'currency', val)} disabled={!isEditable}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="EUR">EUR</SelectItem>
+                          <SelectItem value="USD">USD</SelectItem>
+                          <SelectItem value="CNY">CNY</SelectItem>
+                          <SelectItem value="DKK">DKK</SelectItem>
+                          <SelectItem value="GBP">GBP</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-1 md:col-span-2">
+                    <Label className="text-xs">Notes</Label>
+                    <Input value={item.notes} onChange={e => updateItem(realIndex, 'notes', e.target.value)} placeholder="Optional notes for this item" disabled={!isEditable} />
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </CardContent>
+      </Card>
+
+      {isEditable && (
+        <div className="flex justify-end gap-3">
+          <Link href={`/orders/${id}`}>
+            <Button variant="outline">Cancel</Button>
+          </Link>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      )}
+
+      <Card className="border-destructive/30">
+        <CardHeader>
+          <CardTitle className="text-destructive">Danger Zone</CardTitle>
+          <CardDescription>Permanently delete this order and all its items</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {!showDeleteConfirm ? (
+            <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Order
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-destructive font-medium">
+                Are you sure? This will permanently delete the order and all its items. This action cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+                  {deleting ? 'Deleting...' : 'Yes, Delete Order'}
+                </Button>
+                <Button variant="outline" onClick={() => setShowDeleteConfirm(false)} disabled={deleting}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
