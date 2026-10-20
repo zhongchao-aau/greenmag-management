@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { ArrowLeft, ShoppingCart } from 'lucide-react'
+import { ArrowLeft, Pencil, ShoppingCart } from 'lucide-react'
 import { orderStatusClass, ORDER_STATUS_LABELS, formatDate, formatRelative, formatQuantity, formatCurrency } from '@/lib/utils'
 import { OrderActions } from './order-actions'
 export const dynamic = 'force-dynamic'
@@ -81,6 +82,14 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     </div>
                   )}
                 </div>
+                {isAdmin && (
+                  <Link href={`/orders/${id}/edit`}>
+                    <Button variant="outline" size="sm" className="shrink-0">
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Edit
+                    </Button>
+                  </Link>
+                )}
               </div>
               {order.request && (
                 <p className="text-sm text-[var(--muted-foreground)]">
@@ -88,7 +97,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   <Link href={`/requests/${(order.request as { id: string; code: string }).id}`} className="text-[var(--primary)] hover:underline">
                     {(order.request as { id: string; code: string; purpose: string | null }).code}
                   </Link>
-                  {(order.request as { purpose: string | null }).purpose && ` · ${(order.request as { purpose: string | null }).purpose}`}
+                  {(order.request as { purpose: string | null }).purpose && ` Â· ${(order.request as { purpose: string | null }).purpose}`}
                 </p>
               )}
             </CardHeader>
@@ -123,22 +132,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                             </Link>
                             <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
                           </div>
-                        ) : '—'}
+                        ) : 'â'}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         {formatQuantity(item.quantity, item.component?.unit ?? 'pcs')}
                       </TableCell>
                       {isAdmin && (
                         <TableCell className="text-sm">
-                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : '—'}
+                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : 'â'}
                         </TableCell>
                       )}
                       {isAdmin && (
                         <TableCell className="text-sm font-medium">
-                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : '—'}
+                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : 'â'}
                         </TableCell>
                       )}
-                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
+                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? 'â'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -187,7 +196,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                       <div>
                         <p className="text-sm">{event.description}</p>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {(event.performer as { full_name: string } | null)?.full_name} · {formatRelative(event.created_at)}
+                          {(event.performer as { full_name: string } | null)?.full_name} Â· {formatRelative(event.created_at)}
                         </p>
                       </div>
                     </div>
