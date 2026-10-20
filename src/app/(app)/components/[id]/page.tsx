@@ -142,10 +142,10 @@ export default async function ComponentDetailPage({ params }: { params: Promise<
                           </Badge>
                         </TableCell>
                         <TableCell className={`text-sm font-medium ${t.quantity >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                          {t.quantity >= 0 ? '+' : ''}{formatQuantity(t.quantity)} {component.unit}
+                          {t.quantity >= 0 ? '+' : ''}{t.quantity} {component.unit}
                         </TableCell>
-                        <TableCell className="text-sm text-[var(--muted-foreground)]">{t.notes ?? '—'}</TableCell>
-                        <TableCell className="text-xs">{(t.performed_by as { full_name: string } | null)?.full_name ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-[var(--muted-foreground)]">{t.notes ?? 'â'}</TableCell>
+                        <TableCell className="text-xs">{(t.performed_by as { full_name: string } | null)?.full_name ?? 'â'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -165,7 +165,7 @@ export default async function ComponentDetailPage({ params }: { params: Promise<
             </CardHeader>
             <CardContent>
               <div className="text-center py-2">
-                <p className={`text-3xl font-bold ${isLow ? 'text-amber-600' : ''}`}>{formatQuantity(qty)}</p>
+                <p className={`text-3xl font-bold ${isLow ? 'text-amber-600' : ''}`}>{qty}</p>
                 <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{component.unit}</p>
                 {isLow && (
                   <div className="mt-3 flex items-center gap-1.5 text-amber-600 text-xs bg-amber-50 px-3 py-2 rounded-md">
