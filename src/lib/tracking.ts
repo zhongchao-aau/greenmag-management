@@ -43,13 +43,13 @@ export function normaliseStatus(rawStatus: string): string {
   if (s.includes('delivered')) return 'delivered'
   if (s.includes('exception') || s.includes('failed') || s.includes('returned')) return 'exception'
   if (s.includes('out for delivery') || s.includes('out_for_delivery')) return 'eu_transit'
-  if (s.includes('customs') || s.includes('held') || s.includes('clearance')) return 'customs'
+  if (s.includes('customs') || s.includes('held') || s.includes('clearance')) return 'on_hold'
   if (s.includes('in transit') || s.includes('in_transit') || s.includes('transit')) return 'eu_transit'
   if (s.includes('dispatched') || s.includes('picked up') || s.includes('accepted')) return 'eu_transit'
   return 'eu_transit'
 }
 
-// ─── Aftership (aggregator, preferred) ───────────────────────────────────────
+// âââ Aftership (aggregator, preferred) âââââââââââââââââââââââââââââââââââââââ
 
 async function trackViaAftership(
   trackingNumber: string,
@@ -90,7 +90,7 @@ async function trackViaAftership(
   }
 }
 
-// ─── UPS public (unofficial) ─────────────────────────────────────────────────
+// âââ UPS public (unofficial) âââââââââââââââââââââââââââââââââââââââââââââââââ
 
 async function trackUPS(trackingNumber: string): Promise<TrackingResult> {
   const url = `https://www.ups.com/track/api/Track/GetStatus?loc=en_US`
@@ -138,7 +138,7 @@ async function trackUPS(trackingNumber: string): Promise<TrackingResult> {
   }
 }
 
-// ─── FedEx public (unofficial) ───────────────────────────────────────────────
+// âââ FedEx public (unofficial) âââââââââââââââââââââââââââââââââââââââââââââââ
 
 async function trackFedEx(trackingNumber: string): Promise<TrackingResult> {
   const url = `https://www.fedex.com/trackingCal/track`
@@ -190,7 +190,7 @@ async function trackFedEx(trackingNumber: string): Promise<TrackingResult> {
   }
 }
 
-// ─── DHL public ──────────────────────────────────────────────────────────────
+// âââ DHL public ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 async function trackDHL(trackingNumber: string): Promise<TrackingResult> {
   const url = `https://api-eu.dhl.com/track/shipments?trackingNumber=${encodeURIComponent(trackingNumber)}&service=express`
@@ -228,7 +228,7 @@ async function trackDHL(trackingNumber: string): Promise<TrackingResult> {
   }
 }
 
-// ─── Main entry point ─────────────────────────────────────────────────────────
+// âââ Main entry point âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
 /**
  * Fetch tracking info for a single shipment.
