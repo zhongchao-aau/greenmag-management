@@ -132,22 +132,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                             </Link>
                             <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
                           </div>
-                        ) : 'â'}
+                        ) : '—'}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         {formatQuantity(item.quantity, item.component?.unit ?? 'pcs')}
                       </TableCell>
                       {isAdmin && (
                         <TableCell className="text-sm">
-                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : 'â'}
+                          {item.unit_price ? formatCurrency(item.unit_price, item.currency ?? 'EUR') : '—'}
                         </TableCell>
                       )}
                       {isAdmin && (
                         <TableCell className="text-sm font-medium">
-                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : 'â'}
+                          {item.total_cost ? formatCurrency(item.total_cost, item.currency ?? 'EUR') : '—'}
                         </TableCell>
                       )}
-                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? 'â'}</TableCell>
+                      <TableCell className="text-sm text-[var(--muted-foreground)]">{item.notes ?? '—'}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
