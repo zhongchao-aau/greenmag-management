@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -285,7 +284,7 @@ export default function EditOrderPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="supplier">Supplier *</Label>
+              <label htmlFor="supplier">Supplier *</label>
               <select id="supplier" value={supplierId} onChange={e => setSupplierId(e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                 <option value="">-- Select supplier --</option>
                 {suppliers.map(s => (
@@ -294,12 +293,12 @@ export default function EditOrderPage() {
               </select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="delivery">Expected Delivery</Label>
+              <label htmlFor="delivery">Expected Delivery</label>
               <Input id="delivery" type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} disabled={!isEditable} />
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
+            <label htmlFor="notes">Notes</label>
             <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes..." disabled={!isEditable} rows={3} className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
           </div>
         </CardContent>
@@ -336,7 +335,7 @@ export default function EditOrderPage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs">Component *</Label>
+                    <label className="text-xs">Component *</label>
                     <select value={item.component_id} onChange={e => updateItem(realIndex, 'component_id', e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                       <option value="">-- Select component --</option>
                       {components.map(c => (
@@ -346,21 +345,21 @@ export default function EditOrderPage() {
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <Label className="text-xs">Quantity *</Label>
+                      <label className="text-xs">Quantity *</label>
                       <Input type="number" min="0" step="any" value={item.quantity_ordered} onChange={e => updateItem(realIndex, 'quantity_ordered', e.target.value)} placeholder="0" disabled={!isEditable} />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Unit</Label>
+                      <label className="text-xs">Unit</label>
                       <Input value={item.unit} onChange={e => updateItem(realIndex, 'unit', e.target.value)} placeholder="pcs" disabled={!isEditable} />
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-1">
-                      <Label className="text-xs">Unit Price</Label>
+                      <label className="text-xs">Unit Price</label>
                       <Input type="number" min="0" step="any" value={item.unit_price} onChange={e => updateItem(realIndex, 'unit_price', e.target.value)} placeholder="0.00" disabled={!isEditable} />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs">Currency</Label>
+                      <label className="text-xs">Currency</label>
                       <select value={item.currency} onChange={e => updateItem(realIndex, 'currency', e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                         <option value="EUR">EUR</option>
                         <option value="USD">USD</option>
@@ -371,7 +370,7 @@ export default function EditOrderPage() {
                     </div>
                   </div>
                   <div className="space-y-1 md:col-span-2">
-                    <Label className="text-xs">Notes</Label>
+                    <label className="text-xs">Notes</label>
                     <Input value={item.notes} onChange={e => updateItem(realIndex, 'notes', e.target.value)} placeholder="Optional notes for this item" disabled={!isEditable} />
                   </div>
                 </div>
