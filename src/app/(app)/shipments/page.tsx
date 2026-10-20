@@ -14,7 +14,7 @@ const STATUS_TABS = [
   { value: 'created', label: 'Created' },
   { value: 'china_dispatched', label: 'China Dispatched' },
   { value: 'cn_transit', label: 'CN Transit' },
-  { value: 'customs', label: 'Customs' },
+  { value: 'on_hold', label: 'On Hold' },
   { value: 'eu_transit', label: 'EU Transit' },
   { value: 'delivered', label: 'Delivered' },
   { value: 'received', label: 'Received' },
@@ -54,7 +54,7 @@ export default async function ShipmentsPage({ searchParams }: { searchParams: Pr
   const shipmentOrderMap: Record<string, string[]> = {}
   if (shipmentIds.length > 0) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: soRows } = await (supabase.from('shipment_order_links').select('shipment_id, order_id').in('shipment_id', shipmentIds) as any)
+    const { data: soRows } = await (supabase.from('shipment_orders').select('shipment_id, order_id').in('shipment_id', shipmentIds) as any)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const allOrderIds = [...new Set((soRows ?? []).map((r: any) => r.order_id as string))]
     if (allOrderIds.length > 0) {
