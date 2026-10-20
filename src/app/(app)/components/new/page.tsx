@@ -76,10 +76,10 @@ export default function NewComponentPage() {
     if (form.initial_quantity && parseFloat(form.initial_quantity) > 0 && comp) {
       const { error: txErr } = await supabase.from('inventory_transactions').insert({
         component_id: comp.id,
-        tx_type: 'adjustment',
+        transaction_type: 'adjustment',
         quantity: parseFloat(form.initial_quantity),
         direction: 1,
-        reason: 'Opening balance on component creation',
+        notes: 'Opening balance on component creation',
         performed_by: userId,
       })
       if (txErr) { setError('Component created but failed to set initial quantity: ' + txErr.message); setLoading(false); return }
@@ -157,7 +157,7 @@ export default function NewComponentPage() {
                 value={form.supplier_id}
                 onChange={e => set('supplier_id', e.target.value)}
               >
-                <option value="">— No supplier selected —</option>
+                <option value="">â No supplier selected â</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <p className="text-xs text-[var(--muted-foreground)] mt-1">Can be set later once supplier is confirmed.</p>
