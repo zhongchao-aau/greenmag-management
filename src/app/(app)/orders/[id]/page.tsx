@@ -36,8 +36,8 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { data: items } = await supabase
     .from(itemsView)
     .select(isAdmin
-      ? 'id, quantity, unit_price, currency, total_cost, notes, component:components(id, code, name, unit)'
-      : 'id, quantity, notes, component:components(id, code, name, unit)'
+      ? 'id, quantity, unit_price, currency, total_cost, notes, component:components(id, code, name, unit, supplier_id, suppliers(name))'
+      : 'id, quantity, notes, component:components(id, code, name, unit, supplier_id, suppliers(name))'
     )
     .eq('order_id', id)
 
@@ -97,7 +97,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   <Link href={`/requests/${(order.request as { id: string; code: string }).id}`} className="text-[var(--primary)] hover:underline">
                     {(order.request as { id: string; code: string; purpose: string | null }).code}
                   </Link>
-                  {(order.request as { purpose: string | null }).purpose && ` Â· ${(order.request as { purpose: string | null }).purpose}`}
+                  {(order.request as { purpose: string | null }).purpose && ` · ${(order.request as { purpose: string | null }).purpose}`}
                 </p>
               )}
             </CardHeader>
@@ -111,6 +111,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <TableHeader>
                   <TableRow>
                     <TableHead>Component</TableHead>
+                    <TableHead>Supplier</TableHead>
                     <TableHead>Quantity</TableHead>
                     {isAdmin && <TableHead>Unit Price</TableHead>}
                     {isAdmin && <TableHead>Total</TableHead>}
@@ -121,7 +122,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                   {(items ?? []).map((item: {
                     id: string; quantity: number;
                     unit_price?: number | null; currency?: string | null; total_cost?: number | null;
-                    notes: string | null; component: { id: string; code: string; name: string; unit: string } | null
+                    notes: string | null; component: { id: string; code: string; name: string; unit: string; supplier_id?: string | null; suppliers?: { name: string } | null } | null
                   }) => (
                     <TableRow key={item.id}>
                       <TableCell>
@@ -133,6 +134,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                             <p className="text-xs font-mono text-[var(--muted-foreground)]">{item.component.code}</p>
                           </div>
                         ) : '—'}
+                      </TableCell>
+                      <TableCell className="text-sm text-[var(--muted-foreground)]">
+                        {item.component?.suppliers?.name ?? '—'}
                       </TableCell>
                       <TableCell className="text-sm font-medium">
                         {formatQuantity(item.quantity, item.component?.unit ?? 'pcs')}
@@ -196,7 +200,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                       <div>
                         <p className="text-sm">{event.description}</p>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {(event.performer as { full_name: string } | null)?.full_name} Â· {formatRelative(event.created_at)}
+                          {(event.performer as { full_name: string } | null)?.full_name} · {formatRelative(event.created_at)}
                         </p>
                       </div>
                     </div>
