@@ -157,7 +157,7 @@ export default function NewComponentPage() {
                 value={form.supplier_id}
                 onChange={e => set('supplier_id', e.target.value)}
               >
-                <option value="">â No supplier selected â</option>
+                <option value="">-- No supplier selected --</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
               <p className="text-xs text-[var(--muted-foreground)] mt-1">Can be set later once supplier is confirmed.</p>
