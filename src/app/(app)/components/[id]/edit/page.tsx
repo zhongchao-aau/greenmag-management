@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import Link from 'next/link'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Trash2, Plus, Minus } from 'lucide-react'
 
 const UNITS = ['pcs', 'kg', 'g', 'mg', 'L', 'mL', 'm', 'cm', 'mm', 'set', 'roll', 'sheet', 'box', 'pair']
 const COMPONENT_TYPES = [
@@ -23,28 +23,47 @@ export default function EditComponentPage() {
   const [saving, setSaving] = useState(false)
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
   const [error, setError] = useState('')
+  const [currentStock, setCurrentStock] = useState<number>(0)
+  const [userId, setUserId] = useState<string>('')
   const [form, setForm] = useState({
     name: '', description: '', unit: 'pcs', supplier_id: '',
     manufacturer_part_number: '', low_stock_threshold: '', notes: '', is_active: true,
-    component_type: 'raw_material'
+    component_type: 'raw_material',
   })
+  const [adjQty, setAdjQty] = useState('')
+  const [adjDir, setAdjDir] = useState<'add' | 'reduce'>('add')
+  const [adjNote, setAdjNote] = useState('')
+  const [adjSaving, setAdjSaving] = useState(false)
+  const [adjError, setAdjError] = useState('')
+  const [adjSuccess, setAdjSuccess] = useState('')
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     async function load() {
       const supabase = createClient()
-      const [{ data: c }, { data: s }] = await Promise.all([
+      const [{ data: c }, { data: s }, { data: b }, { data: authData }] = await Promise.all([
         supabase.from('components').select('*').eq('id', id).single(),
         supabase.from('suppliers').select('id, name').eq('is_active', true).order('name'),
+        supabase.from('inventory_balances').select('quantity').eq('component_id', id).single(),
+        supabase.auth.getUser(),
       ])
       if (c) {
         setForm({
-          name: c.name ?? '', description: c.description ?? '', unit: c.unit ?? 'pcs',
-          supplier_id: c.supplier_id ?? '', manufacturer_part_number: c.manufacturer_part_number ?? '',
-          low_stock_threshold: c.low_stock_threshold?.toString() ?? '', notes: c.notes ?? '',
-          is_active: c.is_active ?? true, component_type: (c.component_type === 'device' ? 'equipment' : c.component_type) ?? 'raw_material',
+          name: c.name ?? '',
+          description: c.description ?? '',
+          unit: c.unit ?? 'pcs',
+          supplier_id: c.supplier_id ?? '',
+          manufacturer_part_number: c.manufacturer_part_number ?? '',
+          low_stock_threshold: c.low_stock_threshold?.toString() ?? '',
+          notes: c.notes ?? '',
+          is_active: c.is_active ?? true,
+          component_type: (c.component_type === 'device' ? 'equipment' : c.component_type) ?? 'raw_material',
         })
       }
       setSuppliers(s ?? [])
+      setCurrentStock(b?.quantity ?? 0)
+      if (authData.user) setUserId(authData.user.id)
       setLoadingData(false)
     }
     load()
@@ -75,13 +94,48 @@ export default function EditComponentPage() {
     router.refresh()
   }
 
+  async function handleAdjust(e: React.FormEvent) {
+    e.preventDefault()
+    const qty = parseFloat(adjQty)
+    if (!qty || qty <= 0) { setAdjError('Enter a positive quantity'); return }
+    setAdjError('')
+    setAdjSuccess('')
+    setAdjSaving(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('inventory_transactions').insert({
+      component_id: id,
+      transaction_type: 'adjustment',
+      quantity: qty,
+      direction: adjDir === 'add' ? 1 : -1,
+      notes: adjNote || (adjDir === 'add' ? 'Stock addition' : 'Stock reduction'),
+      performed_by: userId || undefined,
+    })
+    if (error) { setAdjError(error.message); setAdjSaving(false); return }
+    const newStock = adjDir === 'add' ? currentStock + qty : currentStock - qty
+    setCurrentStock(newStock)
+    setAdjQty('')
+    setAdjNote('')
+    setAdjSuccess(`Stock ${adjDir === 'add' ? 'increased' : 'reduced'} by ${qty}. New balance: ${newStock} ${form.unit}`)
+    setAdjSaving(false)
+  }
+
+  async function handleDelete() {
+    setDeleting(true)
+    const supabase = createClient()
+    const { error } = await supabase.from('components').delete().eq('id', id)
+    if (error) { setDeleting(false); alert(error.message); return }
+    router.push(`/components?type=${form.component_type}`)
+    router.refresh()
+  }
+
   if (loadingData) return <div className="p-6 text-sm text-[var(--muted-foreground)]">Loading...</div>
 
   return (
-    <div className="p-6 max-w-2xl mx-auto">
-      <Link href={`/components/${id}`} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] mb-6">
+    <div className="p-6 max-w-2xl mx-auto space-y-6">
+      <Link href={`/components/${id}`} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
         <ArrowLeft className="w-4 h-4" />Back to Component
       </Link>
+
       <Card>
         <CardHeader><CardTitle>Edit Component</CardTitle></CardHeader>
         <CardContent>
@@ -131,7 +185,7 @@ export default function EditComponentPage() {
                 value={form.supplier_id}
                 onChange={e => set('supplier_id', e.target.value)}
               >
-                <option value="">— No supplier —</option>
+                <option value="">-- No supplier selected --</option>
                 {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
@@ -153,13 +207,7 @@ export default function EditComponentPage() {
               />
             </div>
             <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="is_active"
-                checked={form.is_active}
-                onChange={e => set('is_active', e.target.checked)}
-                className="rounded"
-              />
+              <input type="checkbox" id="is_active" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="rounded" />
               <label htmlFor="is_active" className="text-sm">Active component</label>
             </div>
             {error && <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{error}</p>}
@@ -168,6 +216,93 @@ export default function EditComponentPage() {
               <Link href={`/components/${id}`}><Button type="button" variant="outline">Cancel</Button></Link>
             </div>
           </form>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Stock Adjustment</span>
+            <span className="text-base font-normal text-[var(--muted-foreground)]">
+              Current: <strong className="text-[var(--foreground)]">{currentStock} {form.unit}</strong>
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleAdjust} className="space-y-4">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setAdjDir('add')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border text-sm font-medium transition-colors ${adjDir === 'add' ? 'bg-green-600 text-white border-green-600' : 'border-[var(--border)] text-[var(--muted-foreground)] hover:border-green-600 hover:text-green-600'}`}
+              >
+                <Plus className="w-4 h-4" />Add Stock
+              </button>
+              <button
+                type="button"
+                onClick={() => setAdjDir('reduce')}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-md border text-sm font-medium transition-colors ${adjDir === 'reduce' ? 'bg-red-600 text-white border-red-600' : 'border-[var(--border)] text-[var(--muted-foreground)] hover:border-red-600 hover:text-red-600'}`}
+              >
+                <Minus className="w-4 h-4" />Reduce Stock
+              </button>
+            </div>
+            <Input
+              label={`Quantity (${form.unit})`}
+              type="number"
+              min="0.001"
+              step="0.001"
+              value={adjQty}
+              onChange={e => setAdjQty(e.target.value)}
+              required
+              placeholder="0"
+            />
+            <Input
+              label="Note (optional)"
+              value={adjNote}
+              onChange={e => setAdjNote(e.target.value)}
+              placeholder={adjDir === 'add' ? 'e.g. Received from supplier' : 'e.g. Used in experiment'}
+            />
+            {adjError && <p className="text-sm text-[var(--destructive)] bg-red-50 px-3 py-2 rounded-md">{adjError}</p>}
+            {adjSuccess && <p className="text-sm text-green-700 bg-green-50 px-3 py-2 rounded-md">{adjSuccess}</p>}
+            <Button
+              type="submit"
+              loading={adjSaving}
+              className={adjDir === 'reduce' ? 'bg-red-600 hover:bg-red-700' : ''}
+            >
+              {adjDir === 'add' ? 'Add to Stock' : 'Reduce Stock'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
+
+      <Card className="border-red-200">
+        <CardHeader><CardTitle className="text-red-600">Danger Zone</CardTitle></CardHeader>
+        <CardContent>
+          {!confirmDelete ? (
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium">Delete this component</p>
+                <p className="text-xs text-[var(--muted-foreground)] mt-0.5">Permanently removes the component and all its transaction history.</p>
+              </div>
+              <Button
+                variant="outline"
+                className="border-red-300 text-red-600 hover:bg-red-50 shrink-0 ml-4"
+                onClick={() => setConfirmDelete(true)}
+              >
+                <Trash2 className="w-4 h-4 mr-1.5" />Delete
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-red-600">Are you sure? This cannot be undone.</p>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setConfirmDelete(false)}>Cancel</Button>
+                <Button className="bg-red-600 hover:bg-red-700" loading={deleting} onClick={handleDelete}>
+                  Yes, Delete Component
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
