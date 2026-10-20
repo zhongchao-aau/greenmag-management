@@ -54,6 +54,7 @@ export default function EditOrderPage() {
   const [expectedDelivery, setExpectedDelivery] = useState('')
   const [notes, setNotes] = useState('')
   const [orderStatus, setOrderStatus] = useState('')
+  const [supplierRef, setSupplierRef] = useState('')
 
   const [items, setItems] = useState<OrderItem[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -100,6 +101,7 @@ export default function EditOrderPage() {
       setSupplierId(order.supplier_id || '')
       setExpectedDelivery(order.expected_delivery ? order.expected_delivery.split('T')[0] : '')
       setNotes(order.notes || '')
+      setSupplierRef(order.supplier_ref || '')
       setOrderStatus(order.status || '')
 
       const { data: orderItems } = await supabase
@@ -183,7 +185,7 @@ export default function EditOrderPage() {
 
       const { error: updateErr } = await supabase
         .from('purchase_orders')
-        .update({ supplier_id: supplierId, expected_delivery: expectedDelivery || null, notes: notes || null })
+        .update({ supplier_id: supplierId, expected_delivery: expectedDelivery || null, notes: notes || null, supplier_ref: supplierRef || null })
         .eq('id', id)
       if (updateErr) throw updateErr
 
@@ -287,9 +289,17 @@ export default function EditOrderPage() {
           <CardDescription>Basic order information</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <label htmlFor="notes">Description *</label>
+            <Input id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="e.g. Winding wire batch Q3 2026" disabled={!isEditable} />
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label htmlFor="supplier">Supplier *</label>
+              <label htmlFor="delivery">Expected Delivery</label>
+              <Input id="delivery" type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} disabled={!isEditable} />
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="supplier">Supplier</label>
               <select id="supplier" value={supplierId} onChange={e => setSupplierId(e.target.value)} disabled={!isEditable} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50">
                 <option value="">-- Select supplier --</option>
                 {suppliers.map(s => (
@@ -297,14 +307,10 @@ export default function EditOrderPage() {
                 ))}
               </select>
             </div>
-            <div className="space-y-2">
-              <label htmlFor="delivery">Expected Delivery</label>
-              <Input id="delivery" type="date" value={expectedDelivery} onChange={e => setExpectedDelivery(e.target.value)} disabled={!isEditable} />
-            </div>
           </div>
           <div className="space-y-2">
-            <label htmlFor="notes">Notes</label>
-            <textarea id="notes" value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes..." disabled={!isEditable} rows={3} className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
+            <label htmlFor="supplierRef">Order Notes</label>
+            <textarea id="supplierRef" value={supplierRef} onChange={e => setSupplierRef(e.target.value)} placeholder="Internal notes about this order..." disabled={!isEditable} rows={2} className="flex min-h-[60px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
           </div>
         </CardContent>
       </Card>
