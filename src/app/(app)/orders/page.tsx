@@ -34,8 +34,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
   let query = supabase
     .from('purchase_orders')
     .select(`
-      id, code, status, notes, expected_delivery, created_at, updated_at,
-      supplier:suppliers(name)
+      id, code, status, notes, expected_delivery, created_at, updated_at
     `)
     .order('created_at', { ascending: false })
 
@@ -85,8 +84,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
             <TableRow>
               <TableHead className="w-36">ID</TableHead>
               <TableHead>Description</TableHead>
-              <TableHead>Supplier</TableHead>
-              <TableHead>Status</TableHead>
+<TableHead>Status</TableHead>
               <TableHead>Expected Delivery</TableHead>
               <TableHead>Updated</TableHead>
             </TableRow>
@@ -94,7 +92,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
           <TableBody>
             {(orders ?? []).length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6}>
+                <TableCell colSpan={5}>
                   <EmptyState
                     icon={<ShoppingCart className="w-8 h-8 text-[var(--muted-foreground)]" />}
                     title="No purchase orders"
@@ -107,7 +105,6 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
               (orders ?? []).map((o: {
                 id: string; code: string; status: string; notes: string | null;
                 expected_delivery: string | null; created_at: string; updated_at: string;
-                supplier: { name: string } | null;
               }) => (
                 <TableRow key={o.id}>
                   <TableCell className="font-mono text-xs text-[var(--muted-foreground)]">{o.code}</TableCell>
@@ -116,8 +113,7 @@ export default async function OrdersPage({ searchParams }: { searchParams: Promi
                       {o.notes ?? o.code}
                     </Link>
                   </TableCell>
-                  <TableCell className="text-sm">{o.supplier?.name ?? '—'}</TableCell>
-                  <TableCell>
+<TableCell>
                     <Badge className={orderStatusClass(o.status as never)}>{ORDER_STATUS_LABELS[o.status as never]}</Badge>
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(o.expected_delivery)}</TableCell>
