@@ -119,6 +119,24 @@ export function ShipmentActions({ shipmentId, status, isAdmin, hasException, exc
       tracking_leg: legMap[next] ?? null,
       event_date: new Date().toISOString(),
     })
+    // Auto-update linked orders when shipment reaches delivered or received
+    if (next === 'delivered' || next === 'received') {
+      // Get primary order from the shipments row
+      const { data: shipmentRow } = await (supabase.from('shipments') as any)
+        .select('order_id').eq('id', shipmentId).single()
+      // Get all orders from the junction table
+      const { data: junctionRows } = await (supabase.from('shipment_orders') as any)
+        .select('order_id').eq('shipment_id', shipmentId)
+      const orderIds = new Set<string>()
+      if (shipmentRow?.order_id) orderIds.add(shipmentRow.order_id)
+      junctionRows?.forEach((r: { order_id: string }) => orderIds.add(r.order_id))
+      if (orderIds.size > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase.from('purchase_orders') as any)
+          .update({ status: 'received' })
+          .in('id', Array.from(orderIds))
+      }
+    }
     router.refresh()
     setLoading(null)
   }
