@@ -135,7 +135,7 @@ export default function NewOrderPage() {
         notes: description,
         supplier_ref: orderNotes || null,
         expected_delivery: expectedDelivery || null,
-        status: 'approved',
+        status: 'draft',
       })
       .select('id')
       .single()
