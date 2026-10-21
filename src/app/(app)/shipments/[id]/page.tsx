@@ -378,7 +378,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
                           </Badge>
                         </div>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {e.location && `${e.location} · e}{formatDate(e.event_date)}
+                          {e.location && `${e.location} · `e}{formatDate(e.event_date)}
                         </p>
                       </div>
                     </div>
@@ -424,7 +424,7 @@ export default async function ShipmentDetailPage({ params }: { params: Promise<{
               )}
               {shipment.notes && (
                 <div className="pt-2 border-t border-[var(--border)]">
-                  <p className="text-xs text-[var(--muted-foreground)] mb-1">Notes</p>
+                  <p className="text-xs text-[var(--muted-foreground)] mb-1">Notes</s>
                   <p className="text-sm">{shipment.notes}</p>
                 </div>
               )}
