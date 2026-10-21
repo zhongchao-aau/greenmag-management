@@ -30,7 +30,15 @@ const TRANSITIONS: Record<string, { label: string; next: string; style?: string 
   partially_received: [
     { label: 'All Goods Received', next: 'received', style: 'primary' },
   ],
-  received: [
+  // Backward compat for pre-rename statuses (existing DB records)
+  approved: [
+    { label: 'Issue Purchase Order', next: 'sent', style: 'primary' },
+  ],
+  ordered: [
+    { label: 'Supplier Confirmed', next: 'confirmed', style: 'primary' },
+    { label: 'Back to Draft', next: 'draft' },
+  ],
+    received: [
     { label: 'Close Order', next: 'closed', style: 'primary' },
   ],
 }
