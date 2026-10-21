@@ -191,19 +191,22 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </Card>
           )}
 
-          {/* Activity */}
+          {/* Status History */}
           {(activity ?? []).length > 0 && (
             <Card>
-              <CardHeader><CardTitle>Activity</CardTitle></CardHeader>
+              <CardHeader><CardTitle>Status History</CardTitle></CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {(activity ?? []).map((event: { id: string; description: string; created_at: string; performer: { full_name: string } | null }) => (
+                <div>
+                  {(activity ?? []).map((event: { id: string; description: string; created_at: string; performer: { full_name: string } | null }, idx: number, arr: unknown[]) => (
                     <div key={event.id} className="flex gap-3">
-                      <div className="w-2 h-2 rounded-full bg-[var(--primary)] mt-1.5 shrink-0" />
-                      <div>
+                      <div className="flex flex-col items-center">
+                        <div className="w-2 h-2 rounded-full bg-[var(--primary)] mt-1.5 shrink-0" />
+                        {idx < arr.length - 1 && <div className="w-0.5 flex-1 bg-[var(--border)] mt-1" />}
+                      </div>
+                      <div className="pb-4">
                         <p className="text-sm">{event.description}</p>
                         <p className="text-xs text-[var(--muted-foreground)] mt-0.5">
-                          {(event.performer as { full_name: string } | null)?.full_name} · {formatRelative(event.created_at)}
+                          {(event.performer as { full_name: string } | null)?.full_name ?? 'System'} · {formatRelative(event.created_at)}
                         </p>
                       </div>
                     </div>
