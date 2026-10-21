@@ -71,6 +71,9 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                     <span className="font-mono text-sm text-[var(--muted-foreground)]">{order.code}</span>
                     <Badge className={orderStatusClass(order.status as never)}>{ORDER_STATUS_LABELS[order.status as never]}</Badge>
                   </div>
+                  {order.notes && (
+                    <p className="text-base font-semibold text-[var(--foreground)] mt-1 mb-1">{order.notes}</p>
+                  )}
                   {order.supplier && (
                     <div>
                       <Link href={`/suppliers/${(order.supplier as { id: string; name: string }).id}`} className="font-semibold hover:text-[var(--primary)]">
@@ -237,10 +240,10 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <span className="text-[var(--muted-foreground)]">Expected</span>
                 <span>{formatDate(order.expected_delivery)}</span>
               </div>
-              {order.notes && (
+              {order.supplier_ref && (
                 <div className="pt-2 border-t border-[var(--border)]">
                   <p className="text-xs text-[var(--muted-foreground)] mb-1">Notes</p>
-                  <p className="text-sm">{order.notes}</p>
+                  <p className="text-sm">{order.supplier_ref}</p>
                 </div>
               )}
             </CardContent>
