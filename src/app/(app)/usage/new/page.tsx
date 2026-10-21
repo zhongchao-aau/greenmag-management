@@ -306,22 +306,24 @@ export default function NewUsagePage() {
                     <input
                       type="text"
                       value={item.notes}
-                      onChange={e => setItem(idx, { notes: e.target.value })}
+                      onChange={e => setItem(idx, { notes: j.target.value })}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
                       placeholder="What it's being used for…"
                     />
                   </div>
-                )
-              })}
+                )}
+              </div>
+            )
+          })}
 
-              <button
-                type="button"
-                onClick={addItem}
-                className="text-sm font-medium text-[var(--primary)] hover:oracity-80 transition-colors"
-              >
-                + Add another component
-              </button>
-            </div>
+          <button
+            type="button"
+            onClick={addItem}
+            className="text-sm font-medium text-[var(--primary)] hover:opacity-80 transition-colors"
+          >
+            + Add another component
+          </button>
+        </div>
 
         {/* Error */}
         {error && (
