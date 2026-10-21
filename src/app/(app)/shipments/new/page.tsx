@@ -239,6 +239,10 @@ export default function NewShipmentPage() {
       const rows = selectedOrderIds.map(oid => ({ shipment_id: shipmentId, order_id: oid }))
       await supabase.from('shipment_orders').insert(rows)
       await supabase.from('shipments').update({ order_id: selectedOrderIds[0] }).eq('id', shipmentId)
+      // Auto-update linked orders to 'shipped' when shipment is created
+      await supabase.from('purchase_orders')
+        .update({ status: 'shipped' })
+        .in('id', selectedOrderIds)
     }
 
     if (shipmentType === 'sample_transfer' && selectedSampleIds.length > 0) {
