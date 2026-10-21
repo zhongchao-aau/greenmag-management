@@ -29,15 +29,27 @@ const TRANSITIONS: Record<string, { label: string; next: string }[]> = {
   ],
 }
 
+const SHIPMENT_STATUS_LABELS: Record<string, string> = {
+  created: 'Created',
+  china_dispatched: 'Dispatched from China',
+  cn_transit: 'In Transit (China)',
+  customs: 'At Customs',
+  eu_transit: 'In EU Transit',
+  delivered: 'Delivered',
+  received: 'Received',
+  complete: 'Complete',
+}
+
 interface ShipmentActionsProps {
   shipmentId: string
+  shipmentCode: string
   status: string
   isAdmin: boolean
   hasException: boolean
   exceptionNotes: string | null
 }
 
-export function ShipmentActions({ shipmentId, status, isAdmin, hasException, exceptionNotes }: ShipmentActionsProps) {
+export function ShipmentActions({ shipmentId, shipmentCode, status, isAdmin, hasException, exceptionNotes }: ShipmentActionsProps) {
   const router = useRouter()
   const [loading, setLoading] = useState<string | null>(null)
   const [refreshResult, setRefreshResult] = useState<string | null>(null)
@@ -143,6 +155,23 @@ export function ShipmentActions({ shipmentId, status, isAdmin, hasException, exc
           .in('id', Array.from(orderIds))
       }
     }
+
+    // Log this transition to all linked orders' activity history
+    const { data: { user } } = await supabase.auth.getUser()
+    const { data: linkedOrders } = await (supabase.from('shipment_orders') as any)
+      .select('order_id').eq('shipment_id', shipmentId)
+    if (linkedOrders && linkedOrders.length > 0) {
+      const statusLabel = statusLabels[next] ?? next
+      const activityRows = linkedOrders.map((row: { order_id: string }) => ({
+        entity_type: 'purchase_order',
+        entity_id: row.order_id,
+        action: 'shipment_status_changed',
+        description: `Shipment ${shipmentCode}: ${statusLabel}`,
+        performed_by: user?.id ?? null,
+      }))
+      await (supabase.from('activity_log') as any).insert(activityRows)
+    }
+
     router.refresh()
     setLoading(null)
   }
