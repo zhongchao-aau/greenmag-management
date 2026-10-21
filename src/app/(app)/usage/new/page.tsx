@@ -183,7 +183,7 @@ export default function NewUsagePage() {
                 type="date"
                 value={form.used_at}
                 onChange={e => setForm(f => ({ ...f, used_at: e.target.value }))}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
               />
             </div>
           </div>
@@ -194,7 +194,7 @@ export default function NewUsagePage() {
               onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
               rows={2}
               placeholder="Purpose, batch, experiment…"
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent resize-none"
             />
           </div>
         </div>
@@ -217,7 +217,7 @@ export default function NewUsagePage() {
                     <select
                       value={item.component_id}
                       onChange={e => setItem(idx, { component_id: e.target.value, quantity: '' })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
                     >
                       <option value="">Select component…</option>
                       {TYPE_ORDER.map(type => {
@@ -282,7 +282,7 @@ export default function NewUsagePage() {
                         step="any"
                         value={item.quantity}
                         onChange={e => setItem(idx, { quantity: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
                         placeholder="0"
                       />
                     </div>
@@ -292,7 +292,7 @@ export default function NewUsagePage() {
                         type="text"
                         value={item.notes}
                         onChange={e => setItem(idx, { notes: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
                         placeholder="Optional"
                       />
                     </div>
@@ -307,7 +307,7 @@ export default function NewUsagePage() {
                       type="text"
                       value={item.notes}
                       onChange={e => setItem(idx, { notes: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--ring)] focus:border-transparent"
                       placeholder="What it's being used for…"
                     />
                   </div>
@@ -319,7 +319,7 @@ export default function NewUsagePage() {
           <button
             type="button"
             onClick={addItem}
-            className="text-sm font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+            className="text-sm font-medium text-[var(--primary)] hover:opacity-80 transition-colors"
           >
             + Add another component
           </button>
@@ -343,7 +343,7 @@ export default function NewUsagePage() {
           <button
             type="submit"
             disabled={submitting}
-            className="px-5 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="px-5 py-2 text-sm font-medium text-white bg-[var(--primary)] rounded-lg hover:opacity-90 disabled:opacity-50 transition-colors"
           >
             {submitting ? 'Recording…' : 'Record Usage'}
           </button>
