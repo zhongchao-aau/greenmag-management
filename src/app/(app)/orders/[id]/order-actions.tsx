@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { ORDER_STATUS_LABELS } from '@/lib/utils'
 
 // Full order lifecycle:
 // draft → sent → confirmed → (partially_shipped|shipped) → (partially_received) → received → closed
@@ -30,6 +31,9 @@ const TRANSITIONS: Record<string, { label: string; next: string; style?: string 
   partially_received: [
     { label: 'All Goods Received', next: 'received', style: 'primary' },
   ],
+  received: [
+    { label: 'Close Order', next: 'closed', style: 'primary' },
+  ],
   // Backward compat for pre-rename statuses (existing DB records)
   approved: [
     { label: 'Issue Purchase Order', next: 'sent', style: 'primary' },
@@ -37,9 +41,6 @@ const TRANSITIONS: Record<string, { label: string; next: string; style?: string 
   ordered: [
     { label: 'Supplier Confirmed', next: 'confirmed', style: 'primary' },
     { label: 'Back to Draft', next: 'draft' },
-  ],
-    received: [
-    { label: 'Close Order', next: 'closed', style: 'primary' },
   ],
 }
 
@@ -59,8 +60,22 @@ export function OrderActions({ orderId, status }: { orderId: string; status: str
       .from('purchase_orders')
       .update({ status: next })
       .eq('id', orderId)
-    if (err) setError(err.message)
-    else router.refresh()
+    if (err) {
+      setError(err.message)
+    } else {
+      // Log the status change to activity_log
+      const { data: { user } } = await supabase.auth.getUser()
+      const fromLabel = ORDER_STATUS_LABELS[status as keyof typeof ORDER_STATUS_LABELS] ?? status
+      const toLabel = ORDER_STATUS_LABELS[next as keyof typeof ORDER_STATUS_LABELS] ?? next
+      await supabase.from('activity_log').insert({
+        entity_type: 'purchase_order',
+        entity_id: orderId,
+        action: 'status_changed',
+        description: `Status changed: ${fromLabel} → ${toLabel}`,
+        performed_by: user?.id ?? null,
+      })
+      router.refresh()
+    }
     setLoading(null)
   }
 
