@@ -71,7 +71,13 @@ export function ShipmentActions({ shipmentId, status, isAdmin, hasException, exc
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Refresh failed')
-      setRefreshResult(data.updated > 0 ? 'Tracking updated ✓' : 'No changes')
+      if (data.updated > 0) {
+        setRefreshResult('Tracking updated ✓')
+      } else if (data.errors?.length > 0) {
+        setRefreshResult(`Carrier error: ${data.errors[0].error}`)
+      } else {
+        setRefreshResult('No new events')
+      }
       router.refresh()
     } catch (err) {
       setRefreshResult(err instanceof Error ? err.message : 'Error')
