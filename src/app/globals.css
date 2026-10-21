@@ -64,6 +64,11 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* Force system font for password inputs so masking dots render correctly */
+input[type="password"] {
+  font-family: -apple-system, BlinkMacSystemFont, Verdana, Arial, sans-serif;
+}
+
 /* Utility classes */
 .card {
   background: var(--card);
