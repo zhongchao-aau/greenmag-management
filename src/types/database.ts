@@ -106,8 +106,11 @@ export interface Component {
   created_at: string
   updated_at: string
   created_by: string | null
+  supplier_id: string | null
   // Computed
   current_stock?: number
+  // Relations
+  suppliers?: { name: string } | null
 }
 
 export interface BomLine {
