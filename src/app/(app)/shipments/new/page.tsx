@@ -212,6 +212,8 @@ export default function NewShipmentPage() {
     setSubmitting(true)
     setError(null)
 
+    const { data: { user } } = await supabase.auth.getUser()
+
     const { data, error: err } = await supabase.from('shipments').insert({
       description: description || null,
       expected_delivery: expectedDelivery || null,
@@ -225,7 +227,7 @@ export default function NewShipmentPage() {
       eu_carrier: euCarrier || null,
       eu_tracking_number: euTN || null,
       eu_tracking_url: euTU || null,
-    }).select('id').single()
+    }).select('id, code').single()
 
     if (err || !data) {
       setError(err?.message ?? 'Failed to create shipment')
@@ -233,7 +235,8 @@ export default function NewShipmentPage() {
       return
     }
 
-    const shipmentId = (data as { id: string }).id
+    const shipmentId = (data as { id: string; code: string }).id
+    const shipmentCode = (data as { id: string; code: string }).code
 
     if (shipmentType === 'component_order' && selectedOrderIds.length > 0) {
       const rows = selectedOrderIds.map(oid => ({ shipment_id: shipmentId, order_id: oid }))
@@ -243,6 +246,16 @@ export default function NewShipmentPage() {
       await supabase.from('purchase_orders')
         .update({ status: 'shipped' })
         .in('id', selectedOrderIds)
+
+      // Log to each linked order's activity history
+      const activityRows = selectedOrderIds.map(oid => ({
+        entity_type: 'purchase_order',
+        entity_id: oid,
+        action: 'shipment_created',
+        description: `Shipment ${shipmentCode} created and linked`,
+        performed_by: user?.id ?? null,
+      }))
+      await supabase.from('activity_log').insert(activityRows)
     }
 
     if (shipmentType === 'sample_transfer' && selectedSampleIds.length > 0) {
