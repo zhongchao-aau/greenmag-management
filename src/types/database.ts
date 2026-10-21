@@ -3,7 +3,7 @@
 
 export type UserRole = 'user' | 'admin'
 export type RequestStatus = 'draft' | 'submitted' | 'under_review' | 'approved' | 'changes_requested' | 'rejected' | 'closed'
-export type OrderStatus = 'approved' | 'ordered' | 'confirmed' | 'partially_shipped' | 'shipped' | 'partially_received' | 'received' | 'closed'
+export type OrderStatus = 'draft' | 'sent' | 'confirmed' | 'partially_shipped' | 'shipped' | 'partially_received' | 'received' | 'closed'
 // Legacy values kept for backward compat; new workflow uses: created → china_dispatched → cn_transit → customs → eu_transit → delivered → received → complete
 export type ShipmentStatus = 'created' | 'china_dispatched' | 'cn_transit' | 'customs' | 'on_hold' | 'eu_transit' | 'delivered' | 'received' | 'complete' | 'dispatched' | 'in_transit' | 'out_for_delivery' | 'exception' | 'returned'
 export type InspectionResult = 'pending' | 'passed' | 'partially_passed' | 'failed'
