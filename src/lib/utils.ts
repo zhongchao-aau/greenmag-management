@@ -95,8 +95,8 @@ export function requestStatusClass(status: RequestStatus): string {
 
 export function orderStatusClass(status: OrderStatus): string {
   const map: Record<OrderStatus, string> = {
-    approved: 'badge-approved',
-    ordered: 'badge-ordered',
+    draft: 'badge-draft',
+    sent: 'badge-ordered',
     confirmed: 'badge-confirmed',
     partially_shipped: 'badge-submitted',
     shipped: 'badge-shipped',
