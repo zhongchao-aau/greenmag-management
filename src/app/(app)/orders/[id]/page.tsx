@@ -50,7 +50,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
     .from('activity_log')
     .select('id, description, created_at, performer:profiles!performed_by(full_name)')
     .eq('entity_id', id)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
 
   const canTransition = isAdmin
 
