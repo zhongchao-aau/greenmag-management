@@ -311,19 +311,17 @@ export default function NewUsagePage() {
                       placeholder="What it's being used for…"
                     />
                   </div>
-                )}
-              </div>
-            )
-          })}
+                )
+              })}
 
-          <button
-            type="button"
-            onClick={addItem}
-            className="text-sm font-medium text-[var(--primary)] hover:opacity-80 transition-colors"
-          >
-            + Add another component
-          </button>
-        </div>
+              <button
+                type="button"
+                onClick={addItem}
+                className="text-sm font-medium text-[var(--primary)] hover:oracity-80 transition-colors"
+              >
+                + Add another component
+              </button>
+            </div>
 
         {/* Error */}
         {error && (
