@@ -16,7 +16,7 @@ const FILTER_TABS = [
 // Orders that are active (placed but not yet fully received)
 const ACTIVE_ORDER_STATUSES = ['approved', 'ordered', 'confirmed', 'partially_shipped', 'shipped', 'partially_received']
 // Shipments that are in transit (not yet delivered)
-const ACTIVE_SHIPMENT_STATUSES = ['dispatched', 'in_transit', 'customs', 'out_for_delivery', 'china_dispatched', 'cn_transit', 'eu_transit']
+const ACTIVE_SHIPMENT_STATUSES = ['dispatched', 'in_transit', 'customs', 'out_for_delivery']
 // Build requests that are active (components reserved)
 const ACTIVE_BUILD_STATUSES = ['submitted', 'under_review', 'approved']
 
@@ -95,20 +95,25 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
 
   const activeFilter = filterParam ?? ''
 
-  // Build enriched component list from the components table (shows all even with no inventory)
-  const enriched = (components ?? []).map((c: {
-    id: string; code: string; name: string; unit: string;
-    low_stock_threshold: number | null; component_type: string | null;
-    supplier: { name: string } | null
-  }) => {
-    const qty = balanceMap[c.id] ?? 0
-    const onOrder = onOrderMap[c.id] ?? 0
-    const inTransit = inTransitMap[c.id] ?? 0
-    const reserved = reservedMap[c.id] ?? 0
-    const isZero = qty <= 0
-    const isLow = !isZero && c.low_stock_threshold != null && qty < c.low_stock_threshold
-    return { ...c, qty, onOrder, inTransit, reserved, isZero, isLow }
-  })
+  // Build enriched inventory list — only components that have inventory_balances records
+  const enriched = (components ?? [])
+    .filter((c: { id: string; code: string; name: string; unit: string;
+      low_stock_threshold: number | null; component_type: string | null;
+      supplier: { name: string } | null
+    }) => balanceMap[c.id] !== undefined)
+    .map((c: {
+      id: string; code: string; name: string; unit: string;
+      low_stock_threshold: number | null; component_type: string | null;
+      supplier: { name: string } | null
+    }) => {
+      const qty = balanceMap[c.id] ?? 0
+      const onOrder = onOrderMap[c.id] ?? 0
+      const inTransit = inTransitMap[c.id] ?? 0
+      const reserved = reservedMap[c.id] ?? 0
+      const isZero = qty <= 0
+      const isLow = !isZero && c.low_stock_threshold != null && qty < c.low_stock_threshold
+      return { ...c, qty, onOrder, inTransit, reserved, isZero, isLow }
+    })
 
   // Apply filter
   const filtered = enriched.filter(c => {
@@ -132,7 +137,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-semibold">Inventory</h1>
-          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{totalCount} component{totalCount !== 1 ? 's' : ''}</p>
+          <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{totalCount} item{totalCount !== 1 ? 's' : ''}</p>
         </div>
         <Link
           href="/usage/new"
@@ -211,7 +216,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
                         <TableRow key={c.id} className={c.isZero ? 'bg-red-50 dark:bg-red-950/20' : c.isLow ? 'bg-amber-50 dark:bg-amber-950/20' : ''}>
                           <TableCell>
                             <div>
-                              <Link href={`/components/${c.id}`} className="text-sm font-medium hover:text-[var(--primary)]">
+                              <Link href={`/components/${c.id}?from=inventory`} className="text-sm font-medium hover:text-[var(--primary)]">
                                 {c.name}
                               </Link>
                               <p className="text-xs font-mono text-[var(--muted-foreground)]">{c.code}</p>
