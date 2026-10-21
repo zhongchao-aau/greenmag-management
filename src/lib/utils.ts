@@ -37,7 +37,7 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   draft: 'Draft',
   submitted: 'Submitted',
   under_review: 'Under Review',
-  approved: 'Approved',
+  draft: 'Draft',
   changes_requested: 'Changes Requested',
   rejected: 'Rejected',
   closed: 'Closed',
@@ -45,7 +45,7 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   approved: 'Approved',
-  ordered: 'Ordered',
+  sent: 'Sent',
   confirmed: 'Confirmed',
   partially_shipped: 'Partially Shipped',
   shipped: 'Shipped',
