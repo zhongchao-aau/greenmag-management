@@ -9,26 +9,35 @@ import { formatDate } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
 const STATUS_LABELS: Record<string, string> = {
-  approved_to_build: 'Approved to Build',
-  manufacturing: 'Manufacturing',
+  manufactured: 'Manufactured',
   in_test: 'In Test',
-  failure_analysis: 'Failure Analysis',
   passed: 'Passed',
-  retired: 'Retired',
+  failed: 'Failed',
   scrapped: 'Scrapped',
+  deployed: 'Deployed',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  approved_to_build: 'badge-draft',
-  manufacturing: 'badge-ordered',
+  manufactured: 'badge-draft',
   in_test: 'badge-under-review',
-  failure_analysis: 'badge-cancelled',
   passed: 'badge-approved',
-  retired: 'badge-draft',
+  failed: 'badge-cancelled',
   scrapped: 'badge-cancelled',
+  deployed: 'badge-ordered',
 }
 
-export default async function SamplesPage() {
+const STATUS_TABS = [
+  { value: '', label: 'All' },
+  { value: 'manufactured', label: 'Manufactured' },
+  { value: 'in_test', label: 'In Test' },
+  { value: 'passed', label: 'Passed' },
+  { value: 'failed', label: 'Failed' },
+  { value: 'scrapped', label: 'Scrapped' },
+  { value: 'deployed', label: 'Deployed' },
+]
+
+export default async function SamplesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
+  const { status } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -37,13 +46,18 @@ export default async function SamplesPage() {
   if (!profile) redirect('/login')
   const isAdmin = profile.role === 'admin'
 
-  const { data: samples } = await supabase
+  let query = supabase
     .from('samples')
     .select(`
       id, code, variant_serial, status, manufacture_date, notes,
       variant:product_variants(id, name, product:products(name))
     `)
     .order('created_at', { ascending: false })
+
+  if (status) query = query.eq('status', status)
+
+  const { data: samples } = await query
+  const activeStatus = status ?? ''
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -57,6 +71,22 @@ export default async function SamplesPage() {
             <Button size="sm"><Plus className="w-4 h-4 mr-1.5" />Register Sample</Button>
           </Link>
         )}
+      </div>
+
+      <div className="flex gap-1 mb-4 border-b border-[var(--border)]">
+        {STATUS_TABS.map(tab => (
+          <Link
+            key={tab.value}
+            href={tab.value ? `/samples?status=${tab.value}` : '/samples'}
+            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
+              activeStatus === tab.value
+                ? 'border-[var(--primary)] text-[var(--primary)]'
+                : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
+            }`}
+          >
+            {tab.label}
+          </Link>
+        ))}
       </div>
 
       <div className="card overflow-hidden">
@@ -98,7 +128,7 @@ export default async function SamplesPage() {
                       <Link href={`/samples/${s.id}`} className="hover:text-[var(--primary)]">{displayName}</Link>
                     </TableCell>
                     <TableCell className="text-sm text-[var(--muted-foreground)]">
-                      {s.variant?.product?.name ?? 'â'}
+                      {s.variant?.product?.name ?? '—'}
                     </TableCell>
                     <TableCell>
                       <Badge className={`${STATUS_CLASS[s.status] ?? 'badge-draft'} text-xs`}>
