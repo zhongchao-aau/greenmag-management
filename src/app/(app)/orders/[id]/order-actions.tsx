@@ -6,14 +6,14 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 // Full order lifecycle:
-// approved → ordered → confirmed → (partially_shipped|shipped) → (partially_received) → received → closed
+// draft → sent → confirmed → (partially_shipped|shipped) → (partially_received) → received → closed
 const TRANSITIONS: Record<string, { label: string; next: string; style?: string }[]> = {
-  approved: [
-    { label: 'Issue Purchase Order', next: 'ordered', style: 'primary' },
+  draft: [
+    { label: 'Issue Purchase Order', next: 'sent', style: 'primary' },
   ],
-  ordered: [
+  sent: [
     { label: 'Supplier Confirmed', next: 'confirmed', style: 'primary' },
-    { label: 'Back to Approved', next: 'approved' },
+    { label: 'Back to Draft', next: 'draft' },
   ],
   confirmed: [
     { label: 'Mark as Shipped', next: 'shipped', style: 'primary' },
