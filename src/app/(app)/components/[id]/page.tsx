@@ -10,8 +10,9 @@ import { formatDate, formatRelative, formatQuantity } from '@/lib/utils'
 import { LOCATION_LABELS } from '@/lib/locations'
 export const dynamic = 'force-dynamic'
 
-export default async function ComponentDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ComponentDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string }> }) {
   const { id } = await params
+  const { from } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -49,8 +50,8 @@ export default async function ComponentDetailPage({ params }: { params: Promise<
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex items-center justify-between mb-6">
-        <Link href="/components" className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
-          <ArrowLeft className="w-4 h-4" />Back to Components
+        <Link href={from === 'inventory' ? '/inventory' : '/components'} className="flex items-center gap-1.5 text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+          <ArrowLeft className="w-4 h-4" />{from === 'inventory' ? 'Back to Inventory' : 'Back to Components'}
         </Link>
         {isAdmin && (
           <Link href={`/components/${id}/edit`}>
@@ -142,10 +143,10 @@ export default async function ComponentDetailPage({ params }: { params: Promise<
                           </Badge>
                         </TableCell>
                         <TableCell className={`text-sm font-medium ${t.quantity >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                          {t.quantity >= 0 ? '+' : ''}{t.quantity} {component.unit}
+                          {t.quantity >= 0 ? '+' : ''}{formatQuantity(t.quantity)} {component.unit}
                         </TableCell>
-                        <TableCell className="text-sm text-[var(--muted-foreground)]">{t.notes ?? 'â'}</TableCell>
-                        <TableCell className="text-xs">{(t.performed_by as { full_name: string } | null)?.full_name ?? 'â'}</TableCell>
+                        <TableCell className="text-sm text-[var(--muted-foreground)]">{t.notes ?? '—'}</TableCell>
+                        <TableCell className="text-xs">{(t.performed_by as { full_name: string } | null)?.full_name ?? '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -165,7 +166,7 @@ export default async function ComponentDetailPage({ params }: { params: Promise<
             </CardHeader>
             <CardContent>
               <div className="text-center py-2">
-                <p className={`text-3xl font-bold ${isLow ? 'text-amber-600' : ''}`}>{qty}</p>
+                <p className={`text-3xl font-bold ${isLow ? 'text-amber-600' : ''}`}>{formatQuantity(qty)}</p>
                 <p className="text-sm text-[var(--muted-foreground)] mt-0.5">{component.unit}</p>
                 {isLow && (
                   <div className="mt-3 flex items-center gap-1.5 text-amber-600 text-xs bg-amber-50 px-3 py-2 rounded-md">
