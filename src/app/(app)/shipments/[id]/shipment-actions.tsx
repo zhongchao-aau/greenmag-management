@@ -13,11 +13,10 @@ const TRANSITIONS: Record<string, { label: string; next: string }[]> = {
   created: [{ label: 'Mark China Dispatched', next: 'china_dispatched' }],
   china_dispatched: [{ label: 'Mark CN Transit', next: 'cn_transit' }],
   cn_transit: [
-    { label: 'On Hold', next: 'on_hold' },
+    { label: 'At Customs', next: 'customs' },
     { label: 'In EU Transit', next: 'eu_transit' },
   ],
-  on_hold: [{ label: 'Back In Transit (EU)', next: 'eu_transit' }],
-  customs: [{ label: 'Back In Transit (EU)', next: 'eu_transit' }], // legacy
+  customs: [{ label: 'Cleared — In EU Transit', next: 'eu_transit' }],
   eu_transit: [{ label: 'Mark Delivered', next: 'delivered' }],
   delivered: [{ label: 'Mark Received', next: 'received' }],
   received: [{ label: 'Mark Complete', next: 'complete' }],
@@ -108,60 +107,15 @@ export function ShipmentActions({ shipmentId, shipmentCode, status, isAdmin, has
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error: err } = await (supabase.from('shipments') as any).update(update).eq('id', shipmentId)
     if (err) { setError(err.message); setLoading(null); return }
-    // Log the status change to shipment_events
-    const legMap: Record<string, string> = {
-      china_dispatched: 'china',
-      cn_transit: 'china',
-      customs: 'china',
-      on_hold: 'china',
-      eu_transit: 'eu',
-      delivered: 'eu',
-      received: 'eu',
-      complete: 'eu',
-    }
-    const statusLabels: Record<string, string> = {
-      created: 'Created',
-      china_dispatched: 'Dispatched from China',
-      cn_transit: 'In Transit (China)',
-      customs: 'On Hold (legacy)',
-      on_hold: 'On Hold',
-      eu_transit: 'In EU Transit',
-      delivered: 'Delivered',
-      received: 'Received',
-      complete: 'Complete',
-    }
-    await (supabase.from('shipment_events') as any).insert({
-      shipment_id: shipmentId,
-      description: `Status changed: ${statusLabels[next] ?? next}`,
-      location: null,
-      tracking_leg: legMap[next] ?? null,
-      event_date: new Date().toISOString(),
-    })
-    // Auto-update linked orders when shipment reaches delivered or received
-    if (next === 'delivered' || next === 'received') {
-      // Get primary order from the shipments row
-      const { data: shipmentRow } = await (supabase.from('shipments') as any)
-        .select('order_id').eq('id', shipmentId).single()
-      // Get all orders from the junction table
-      const { data: junctionRows } = await (supabase.from('shipment_orders') as any)
-        .select('order_id').eq('shipment_id', shipmentId)
-      const orderIds = new Set<string>()
-      if (shipmentRow?.order_id) orderIds.add(shipmentRow.order_id)
-      junctionRows?.forEach((r: { order_id: string }) => orderIds.add(r.order_id))
-      if (orderIds.size > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        await (supabase.from('purchase_orders') as any)
-          .update({ status: 'received' })
-          .in('id', Array.from(orderIds))
-      }
-    }
 
-    // Log this transition to all linked orders' activity history
+    // Log to linked orders' activity history
     const { data: { user } } = await supabase.auth.getUser()
-    const { data: linkedOrders } = await (supabase.from('shipment_orders') as any)
-      .select('order_id').eq('shipment_id', shipmentId)
+    const { data: linkedOrders } = await supabase
+      .from('shipment_orders')
+      .select('order_id')
+      .eq('shipment_id', shipmentId)
     if (linkedOrders && linkedOrders.length > 0) {
-      const statusLabel = statusLabels[next] ?? next
+      const statusLabel = SHIPMENT_STATUS_LABELS[next] ?? next
       const activityRows = linkedOrders.map((row: { order_id: string }) => ({
         entity_type: 'purchase_order',
         entity_id: row.order_id,
@@ -169,7 +123,7 @@ export function ShipmentActions({ shipmentId, shipmentCode, status, isAdmin, has
         description: `Shipment ${shipmentCode}: ${statusLabel}`,
         performed_by: user?.id ?? null,
       }))
-      await (supabase.from('activity_log') as any).insert(activityRows)
+      await supabase.from('activity_log').insert(activityRows)
     }
 
     router.refresh()
