@@ -135,7 +135,7 @@ export default function NewShipmentPage() {
   const [euCarrier, setEuCarrier] = useState('')
   const [euTN, setEuTN] = useState('')
   const [euTU, setEuTU] = useState('')
-  const [orders, setOrders] = useState<{ id: string; code: string; status: string; supplier: { name: string } | null }[]>([])
+  const [orders, setOrders] = useState<{ id: string; code: string; status: string; notes: string | null }[]>([])
   const [selectedOrderIds, setSelectedOrderIds] = useState<string[]>(preOrderId ? [preOrderId] : [])
   const [samples, setSamples] = useState<{ id: string; code: string; status: string; product_variants: { name: string; products: { name: string } | null } | null }[]>([])
   const [selectedSampleIds, setSelectedSampleIds] = useState<string[]>([])
@@ -154,8 +154,8 @@ export default function NewShipmentPage() {
       const [ordersRes, samplesRes, componentsRes] = await Promise.all([
         supabase
           .from('purchase_orders')
-          .select('id, code, status, supplier:suppliers(name)')
-          .not('status', 'in', '(completed,cancelled,closed,fully_received)')
+          .select('id, code, status, notes')
+          .not('status', 'in', '(closed,cancelled)')
           .order('created_at', { ascending: false }),
         supabase
           .from('samples')
@@ -173,7 +173,7 @@ export default function NewShipmentPage() {
       if (preOrderId && !orderData.find((o: any) => o.id === preOrderId)) {
         const { data: preOrder } = await supabase
           .from('purchase_orders')
-          .select('id, code, status, supplier:suppliers(name)')
+          .select('id, code, status, notes')
           .eq('id', preOrderId)
           .single()
         if (preOrder) {
@@ -346,7 +346,7 @@ export default function NewShipmentPage() {
                       <input type="checkbox" checked={selectedOrderIds.includes(o.id)} onChange={() => toggleOrder(o.id)}
                         className="rounded border-[var(--border)]" />
                       <span className="font-mono text-sm">{o.code}</span>
-                      {o.supplier && <span className="text-sm text-[var(--muted-foreground)]">{o.supplier.name}</span>}
+                      {o.notes && <span className="text-sm text-[var(--muted-foreground)] truncate flex-1">{o.notes}</span>}
                       <span className="ml-auto text-xs px-1.5 py-0.5 rounded bg-[var(--accent)] capitalize">{o.status.replace(/_/g, ' ')}</span>
                     </label>
                   ))}
