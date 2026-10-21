@@ -9,35 +9,26 @@ import { formatDate } from '@/lib/utils'
 export const dynamic = 'force-dynamic'
 
 const STATUS_LABELS: Record<string, string> = {
-  manufactured: 'Manufactured',
+  approved_to_build: 'Approved to Build',
+  manufacturing: 'Manufacturing',
   in_test: 'In Test',
+  failure_analysis: 'Failure Analysis',
   passed: 'Passed',
-  failed: 'Failed',
+  retired: 'Retired',
   scrapped: 'Scrapped',
-  deployed: 'Deployed',
 }
 
 const STATUS_CLASS: Record<string, string> = {
-  manufactured: 'badge-draft',
+  approved_to_build: 'badge-draft',
+  manufacturing: 'badge-under-review',
   in_test: 'badge-under-review',
+  failure_analysis: 'badge-cancelled',
   passed: 'badge-approved',
-  failed: 'badge-cancelled',
+  retired: 'badge-ordered',
   scrapped: 'badge-cancelled',
-  deployed: 'badge-ordered',
 }
 
-const STATUS_TABS = [
-  { value: '', label: 'All' },
-  { value: 'manufactured', label: 'Manufactured' },
-  { value: 'in_test', label: 'In Test' },
-  { value: 'passed', label: 'Passed' },
-  { value: 'failed', label: 'Failed' },
-  { value: 'scrapped', label: 'Scrapped' },
-  { value: 'deployed', label: 'Deployed' },
-]
-
-export default async function SamplesPage({ searchParams }: { searchParams: Promise<{ status?: string }> }) {
-  const { status } = await searchParams
+export default async function SamplesPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -46,18 +37,13 @@ export default async function SamplesPage({ searchParams }: { searchParams: Prom
   if (!profile) redirect('/login')
   const isAdmin = profile.role === 'admin'
 
-  let query = supabase
+  const { data: samples } = await supabase
     .from('samples')
     .select(`
       id, code, variant_serial, status, manufacture_date, notes,
       variant:product_variants(id, name, product:products(name))
     `)
     .order('created_at', { ascending: false })
-
-  if (status) query = query.eq('status', status)
-
-  const { data: samples } = await query
-  const activeStatus = status ?? ''
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
@@ -73,27 +59,11 @@ export default async function SamplesPage({ searchParams }: { searchParams: Prom
         )}
       </div>
 
-      <div className="flex gap-1 mb-4 border-b border-[var(--border)]">
-        {STATUS_TABS.map(tab => (
-          <Link
-            key={tab.value}
-            href={tab.value ? `/samples?status=${tab.value}` : '/samples'}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors -mb-px ${
-              activeStatus === tab.value
-                ? 'border-[var(--primary)] text-[var(--primary)]'
-                : 'border-transparent text-[var(--muted-foreground)] hover:text-[var(--foreground)]'
-            }`}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </div>
-
       <div className="card overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Code</TableHead>
+              <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Product</TableHead>
               <TableHead>Status</TableHead>
